@@ -31,22 +31,28 @@ fun Application.configureRouting() {
             call.respondText("Hello, $userId with $header")
         }
         get("/users") {
-            val name = call.request.queryParameters["name"]
-            if (name.isNullOrEmpty()) {
-                call.response.status(HttpStatusCode.Forbidden)
-                val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'name' parameter")
+            try {
+                val name = call.request.queryParameters["name"]
+                if (name.isNullOrEmpty()) {
+                    call.response.status(HttpStatusCode.Forbidden)
+                    val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'name' parameter")
+                    call.respond(error)
+                    return@get
+                }
+                val userId = call.request.queryParameters["id"]
+                if (userId.isNullOrEmpty()) {
+                    call.response.status(HttpStatusCode.Forbidden)
+                    val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'id' parameter")
+                    call.respond(error)
+                    return@get
+                }
+                val user = User(name, userId.toIntOrNull())
+                call.respond(user)
+            } catch (e: Exception) {
+                val error = Error(ErrorStatus.GENERIC_ERROR, "${e.message}")
                 call.respond(error)
-                return@get
             }
-            val userId = call.request.queryParameters["id"]
-            if (userId.isNullOrEmpty()) {
-                call.response.status(HttpStatusCode.Forbidden)
-                val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'id' parameter")
-                call.respond(error)
-                return@get
-            }
-            val user = User(name, userId.toIntOrNull())
-            call.respond(user)
+
         }
     }
 }
