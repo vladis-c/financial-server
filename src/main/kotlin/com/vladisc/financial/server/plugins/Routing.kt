@@ -1,5 +1,8 @@
 package com.vladisc.financial.server.plugins
 
+import com.vladisc.financial.server.classes.Error
+import com.vladisc.financial.server.classes.ErrorStatus
+import com.vladisc.financial.server.classes.User
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -27,5 +30,24 @@ fun Application.configureRouting() {
             }
             call.respondText("Hello, $userId with $header")
         }
+        get("/users") {
+            val name = call.request.queryParameters["name"]
+            if (name.isNullOrEmpty()) {
+                call.response.status(HttpStatusCode.Forbidden)
+                val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'name' parameter")
+                call.respond(error)
+                return@get
+            }
+            val userId = call.request.queryParameters["id"]
+            if (userId.isNullOrEmpty()) {
+                call.response.status(HttpStatusCode.Forbidden)
+                val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'id' parameter")
+                call.respond(error)
+                return@get
+            }
+            val user = User(name, userId.toIntOrNull())
+            call.respond(user)
+        }
     }
 }
+

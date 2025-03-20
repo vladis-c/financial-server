@@ -1,6 +1,7 @@
 plugins {
     application
     kotlin("jvm") version "2.1.10"
+    kotlin("plugin.serialization") version "2.1.10"
 }
 
 group = "com.vladisc.financial.server"
@@ -22,6 +23,8 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:3.1.0")
     implementation("io.ktor:ktor-server-call-logging:3.1.0")
     implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("io.ktor:ktor-server-content-negotiation:3.1.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.0")
 }
 
 tasks.test {
