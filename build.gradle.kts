@@ -7,7 +7,8 @@ group = "com.vladisc.financial.server"
 version = "0.0.1"
 
 application {
-    mainClass.set("io.ktor.server.netty.EngineMain")
+//    mainClass.set("io.ktor.server.netty.EngineMain")
+    mainClass.set("com.vladisc.financial.server.ApplicationKt")
 }
 
 repositories {
