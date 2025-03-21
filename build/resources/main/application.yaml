@@ -1,0 +1,11 @@
+ktor:
+  development: true
+  watch:
+    - classes
+    - resources
+  deployment:
+    port: 7070
+  application:
+    modules:
+      - com.vladisc.financial.server.ApplicationKt.module
+      - com.vladisc.financial.server.ApplicationKt.healthCheckModule
