@@ -5,8 +5,10 @@ import com.vladisc.financial.server.classes.ErrorStatus
 import com.vladisc.financial.server.classes.User
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.http.content.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.io.File
 
 fun Application.healthCheck() {
     routing {
@@ -18,6 +20,13 @@ fun Application.healthCheck() {
 
 fun Application.configureRouting() {
     routing {
+        staticFiles("/resources", File("files")) {
+            default("index.html")
+            preCompressed(CompressedFileType.BROTLI, CompressedFileType.GZIP)
+            modify { file, call ->
+                call.response.headers.append(HttpHeaders.ETag, file.name.toString())
+            }
+        }
         get("/") {
             call.respondText("Hello, my name is Vlad")
         }
