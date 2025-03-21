@@ -2,6 +2,8 @@ val postgresql_driver_version: String by project
 val exposed_version: String by project
 val ktor_version: String by project
 val logback_version: String by project
+val dotenv_version: String by project
+val mindrot_version: String by project
 
 plugins {
     application
@@ -35,6 +37,10 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-dao:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
+    implementation("io.ktor:ktor-server-auth:$ktor_version")
+    implementation("io.ktor:ktor-server-auth-jwt:$ktor_version")
+    implementation("io.github.cdimascio:dotenv-kotlin:$dotenv_version")
+    implementation("org.mindrot:jbcrypt:$mindrot_version")
 }
 
 tasks.test {

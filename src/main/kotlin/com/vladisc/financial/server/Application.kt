@@ -1,11 +1,14 @@
 package com.vladisc.financial.server
 
-import com.vladisc.financial.server.routing.configureRouting
-import com.vladisc.financial.server.routing.healthCheck
+import com.vladisc.financial.server.data.DatabaseFactory
+import com.vladisc.financial.server.plugins.configureAuthentication
+import com.vladisc.financial.server.repositories.UserRepository
+import com.vladisc.financial.server.routing.authRoutes
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
@@ -19,10 +22,11 @@ fun Application.module() {
             isLenient = true
         })
     }
-    configureRouting()
-}
+    DatabaseFactory.init()
+    configureAuthentication()
 
-@Suppress("unused")
-fun Application.healthCheckModule() {
-    healthCheck()
+    val userRepository = UserRepository()
+    routing {
+        authRoutes(userRepository, "http://0.0.0.0:7070/", "http://0.0.0.0:7070/", "your_jwt_secret")
+    }
 }

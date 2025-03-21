@@ -8,4 +8,3 @@ ktor:
   application:
     modules:
       - com.vladisc.financial.server.ApplicationKt.module
-      - com.vladisc.financial.server.ApplicationKt.healthCheckModule

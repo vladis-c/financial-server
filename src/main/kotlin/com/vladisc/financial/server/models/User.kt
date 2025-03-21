@@ -1,9 +1,11 @@
 package com.vladisc.financial.server.models
 
-import kotlinx.serialization.Serializable
+import org.jetbrains.exposed.sql.*
 
-@Serializable
-data class User (
-    val name: String,
-    val id: Int?
-)
+object Users : Table() {
+    val id = integer("id").autoIncrement()
+    val username = varchar("username", 255).uniqueIndex()
+    val passwordHash = varchar("password_hash", 255)
+
+    override val primaryKey = PrimaryKey(id)
+}

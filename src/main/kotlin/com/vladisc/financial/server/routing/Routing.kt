@@ -1,68 +1,46 @@
 package com.vladisc.financial.server.routing
 
-import com.vladisc.financial.server.models.Error
-import com.vladisc.financial.server.models.ErrorStatus
-import com.vladisc.financial.server.models.User
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import com.vladisc.financial.server.repositories.UserRepository
 import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.http.content.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import java.io.File
+import org.mindrot.jbcrypt.BCrypt
+import kotlinx.serialization.Serializable
 
-fun Application.healthCheck() {
-    routing {
-        get("/health-check") {
-            call.respondText("Server healthy")
-        }
-    }
-}
+@Serializable
+data class UserCredentials(val username: String, val password: String)
 
-fun Application.configureRouting() {
-    routing {
-        staticFiles("/resources", File("files")) {
-            default("index.html")
-            preCompressed(CompressedFileType.BROTLI, CompressedFileType.GZIP)
-            modify { file, call ->
-                call.response.headers.append(HttpHeaders.ETag, file.name.toString())
-            }
-        }
-        get("/") {
-            call.respondText("Hello, my name is Vlad")
-        }
-        get("/users/{userId}") {
-            val userId = call.parameters["userId"]
-            val header = call.request.headers["Connection"]
-            if (userId?.toIntOrNull() == 1) {
-                call.response.header("CustomHeader", userId)
-                call.response.status(HttpStatusCode(201, "OK"))
-            }
-            call.respondText("Hello, $userId with header $header")
-        }
-        get("/users") {
-            try {
-                val name = call.request.queryParameters["name"]
-                if (name.isNullOrEmpty()) {
-                    call.response.status(HttpStatusCode.Forbidden)
-                    val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'name' parameter")
-                    call.respond(error)
-                    return@get
-                }
-                val userId = call.request.queryParameters["id"]
-                if (userId.isNullOrEmpty()) {
-                    call.response.status(HttpStatusCode.Forbidden)
-                    val error = Error(ErrorStatus.PARAMETER_MISSING, "No 'id' parameter")
-                    call.respond(error)
-                    return@get
-                }
-                val user = User(name, userId.toIntOrNull())
+fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudience: String, jwtSecret: String) {
+    route("/auth") {
+        post("/signup") {
+            val credentials = call.receive<UserCredentials>()
+            val user = UserCredentials(credentials.username, credentials.password)
+            val success = userRepository.addUser(user.username, user.password)
+            if (success) {
                 call.respond(user)
-            } catch (e: Exception) {
-                val error = Error(ErrorStatus.GENERIC_ERROR, "${e.message}")
-                call.respond(error)
+            } else {
+                call.respond(HttpStatusCode.Conflict, "Username already exists")
             }
-
         }
+
+//        post("/login") {
+//            val credentials = call.receive<UserCredentials>()
+//            val user = userRepository.findUser(credentials.username)
+//
+//            if (user != null && BCrypt.checkpw(credentials.password, user.second)) {
+//                val token = JWT.create()
+//                    .withIssuer(jwtIssuer)
+//                    .withAudience(jwtAudience)
+//                    .withClaim("userId", user.first)
+//                    .sign(Algorithm.HMAC256(jwtSecret))
+//
+//                call.respond(hashMapOf("token" to token))
+//            } else {
+//                call.respond(HttpStatusCode.Unauthorized, "Invalid username or password")
+//            }
+//        }
     }
 }
-
