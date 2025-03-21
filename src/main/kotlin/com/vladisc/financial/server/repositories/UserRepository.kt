@@ -19,11 +19,11 @@ class UserRepository {
         }
     }
 
-//    fun findUser(username: String): Pair<Int, String>? {
-//        return transaction {
-//            Users.select { Users.username eq username }
-//                .map { it[Users.id] to it[Users.passwordHash] }
-//                .singleOrNull()
-//        }
-//    }
+    fun findUser(username: String): ResultRow? {
+        return transaction {
+            Users.selectAll()
+                .toList()
+                .find { it[Users.username] == username }
+        }
+    }
 }
