@@ -3,7 +3,6 @@ package com.vladisc.financial.server.repositories
 import com.vladisc.financial.server.models.Users
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.mindrot.jbcrypt.BCrypt
 
 class UserRepository {

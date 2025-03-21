@@ -5,19 +5,20 @@ import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import io.github.cdimascio.dotenv.dotenv
 
 fun Application.configureAuthentication() {
-    val jwtSecret = "your_jwt_secret"
-    val jwtIssuer = "http://0.0.0.0:7070/"
-    val jwtAudience = "http://0.0.0.0:7070/"
+    val dotenv = dotenv()
+    val jwtSecret = dotenv["JWT_SECRET"]
+    val jwtUrl = dotenv["JWT_URL"]
 
     install(Authentication) {
         jwt {
             realm = "ktor application"
             verifier(
                 JWT.require(Algorithm.HMAC256(jwtSecret))
-                    .withIssuer(jwtIssuer)
-                    .withAudience(jwtAudience)
+                    .withIssuer(jwtUrl)
+                    .withAudience(jwtUrl)
                     .build()
             )
             validate { credential ->

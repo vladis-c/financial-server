@@ -30,7 +30,14 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
             val success = userRepository.addUser(user.username, user.password)
             if (success) {
                 val userRow = userRepository.findUser(user.username)
-                val tokenResponse = generateTokens(userRow?.get(Users.id), jwtIssuer, jwtAudience, jwtSecret, Date(System.currentTimeMillis() + oneWeekInMillis), Date(System.currentTimeMillis() + refreshTokenExpiry))
+                val tokenResponse = generateTokens(
+                    userRow?.get(Users.id),
+                    jwtIssuer,
+                    jwtAudience,
+                    jwtSecret,
+                    Date(System.currentTimeMillis() + oneWeekInMillis),
+                    Date(System.currentTimeMillis() + refreshTokenExpiry)
+                )
                 setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
                 call.respond(HttpStatusCode.Created, tokenResponse)
             } else {
@@ -56,14 +63,28 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
             }
 
             val expirationDate = Date(System.currentTimeMillis() + oneWeekInMillis)
-            val tokenResponse = generateTokens(userRow[Users.id], jwtIssuer, jwtAudience, jwtSecret, expirationDate, Date(System.currentTimeMillis() + refreshTokenExpiry))
+            val tokenResponse = generateTokens(
+                userRow[Users.id],
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                expirationDate,
+                Date(System.currentTimeMillis() + refreshTokenExpiry)
+            )
             setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
             call.respond(HttpStatusCode.OK, tokenResponse)
         }
     }
 }
 
-fun generateTokens(userId: Int?, jwtIssuer: String, jwtAudience: String, jwtSecret: String,expirationDate: Date, refreshExpirationDate: Date): TokenResponse {
+fun generateTokens(
+    userId: Int?,
+    jwtIssuer: String,
+    jwtAudience: String,
+    jwtSecret: String,
+    expirationDate: Date,
+    refreshExpirationDate: Date
+): TokenResponse {
     val accessToken = JWT.create()
         .withIssuer(jwtIssuer)
         .withAudience(jwtAudience)

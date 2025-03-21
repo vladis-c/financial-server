@@ -4,6 +4,7 @@ import com.vladisc.financial.server.data.DatabaseFactory
 import com.vladisc.financial.server.plugins.configureAuthentication
 import com.vladisc.financial.server.repositories.UserRepository
 import com.vladisc.financial.server.routing.authRoutes
+import io.github.cdimascio.dotenv.dotenv
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.calllogging.*
@@ -26,7 +27,12 @@ fun Application.module() {
     configureAuthentication()
 
     val userRepository = UserRepository()
+
+    val dotenv = dotenv()
+    val jwtSecret = dotenv["JWT_SECRET"]
+    val jwtUrl = dotenv["JWT_URL"]
+
     routing {
-        authRoutes(userRepository, "http://0.0.0.0:7070/", "http://0.0.0.0:7070/", "your_jwt_secret")
+        authRoutes(userRepository, jwtUrl, jwtUrl, jwtSecret)
     }
 }
