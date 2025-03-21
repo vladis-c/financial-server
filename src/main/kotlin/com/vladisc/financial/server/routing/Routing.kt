@@ -20,7 +20,7 @@ private const val refreshTokenExpiry = oneWeekInMillis * 4
 data class UserCredentials(val username: String, val password: String)
 
 @Serializable
-data class TokenResponse(val accessToken: String, val refreshToken: String)
+data class TokenResponse(val accessToken: String, val refreshToken: String?)
 
 fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudience: String, jwtSecret: String) {
     route("/auth") {
@@ -36,7 +36,8 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                     jwtAudience,
                     jwtSecret,
                     Date(System.currentTimeMillis() + oneWeekInMillis),
-                    Date(System.currentTimeMillis() + refreshTokenExpiry)
+                    Date(System.currentTimeMillis() + refreshTokenExpiry),
+                    false
                 )
                 setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
                 call.respond(HttpStatusCode.Created, tokenResponse)
@@ -69,11 +70,46 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 jwtAudience,
                 jwtSecret,
                 expirationDate,
-                Date(System.currentTimeMillis() + refreshTokenExpiry)
+                Date(System.currentTimeMillis() + refreshTokenExpiry),
+                false
             )
             setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
             call.respond(HttpStatusCode.OK, tokenResponse)
         }
+
+        post("/validate") {
+            val tokens = call.receive<TokenResponse>()
+
+            try {
+                val decodedToken = JWT.require(Algorithm.HMAC256(jwtSecret))
+                    .withIssuer(jwtIssuer)
+                    .withAudience(jwtAudience)
+                    .build()
+                    .verify(tokens.accessToken)
+
+                val expirationDate = Date(System.currentTimeMillis() + oneWeekInMillis)
+                val userId = decodedToken.getClaim("userId").asInt()
+                val userRow = userRepository.findUserById(userId)
+
+                if (userRow != null) {
+                    val tokenResponse = generateTokens(
+                        userRow[Users.id],
+                        jwtIssuer,
+                        jwtAudience,
+                        jwtSecret,
+                        expirationDate,
+                        Date(System.currentTimeMillis() + refreshTokenExpiry),
+                        true
+                    )
+                    call.respond(HttpStatusCode.OK, mapOf("accessToken" to tokenResponse.accessToken))
+                } else {
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid refresh token")
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.Unauthorized, "Token expired")
+            }
+        }
+
     }
 }
 
@@ -83,7 +119,8 @@ fun generateTokens(
     jwtAudience: String,
     jwtSecret: String,
     expirationDate: Date,
-    refreshExpirationDate: Date
+    refreshExpirationDate: Date,
+    onlyAccessToken: Boolean?
 ): TokenResponse {
     val accessToken = JWT.create()
         .withIssuer(jwtIssuer)
@@ -92,6 +129,9 @@ fun generateTokens(
         .withExpiresAt(expirationDate)
         .sign(Algorithm.HMAC256(jwtSecret))
 
+    if (onlyAccessToken == true) {
+        return TokenResponse(accessToken, null)
+    }
     val refreshToken = JWT.create()
         .withIssuer(jwtIssuer)
         .withAudience(jwtAudience)

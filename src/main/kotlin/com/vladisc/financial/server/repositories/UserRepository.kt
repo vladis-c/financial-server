@@ -25,4 +25,12 @@ class UserRepository {
                 .find { it[Users.username] == username }
         }
     }
+
+    fun findUserById(userId: Int): ResultRow? {
+        return transaction {
+            Users.selectAll()
+                .toList()
+                .find { it[Users.id] == userId }
+        }
+    }
 }
