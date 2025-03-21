@@ -31,7 +31,7 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
             if (success) {
                 val userRow = userRepository.findUser(user.username)
                 val tokenResponse = generateTokens(userRow?.get(Users.id), jwtIssuer, jwtAudience, jwtSecret, Date(System.currentTimeMillis() + oneWeekInMillis), Date(System.currentTimeMillis() + refreshTokenExpiry))
-                callTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
+                setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
                 call.respond(HttpStatusCode.Created, tokenResponse)
             } else {
                 call.respond(HttpStatusCode.Conflict, "Username already exists")
@@ -57,11 +57,8 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
 
             val expirationDate = Date(System.currentTimeMillis() + oneWeekInMillis)
             val tokenResponse = generateTokens(userRow[Users.id], jwtIssuer, jwtAudience, jwtSecret, expirationDate, Date(System.currentTimeMillis() + refreshTokenExpiry))
-            callTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
-            call.respond(HttpStatusCode.Created, tokenResponse)
-
-            call.response.header(HttpHeaders.Expires, expirationDate.time.toString())
-            call.respond(HttpStatusCode.OK)
+            setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
+            call.respond(HttpStatusCode.OK, tokenResponse)
         }
     }
 }
@@ -84,7 +81,7 @@ fun generateTokens(userId: Int?, jwtIssuer: String, jwtAudience: String, jwtSecr
     return TokenResponse(accessToken, refreshToken)
 }
 
-fun callTokenHeader(call: RoutingCall, token: String, expires: GMTDate) {
+fun setTokenHeader(call: RoutingCall, token: String, expires: GMTDate) {
     call.response.cookies.append(
         "sessionid",
         token,
