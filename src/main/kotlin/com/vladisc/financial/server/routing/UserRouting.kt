@@ -8,19 +8,8 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.Serializable
 import org.mindrot.jbcrypt.BCrypt
 
-@Serializable
-data class User(val username: String, val id: Int)
-
-@Serializable
-data class PartialUser(
-    val username: String? = null,
-    val id: Int? = null,
-    val newPassword: String? = null,
-    val oldPassword: String? = null
-)
 
 fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudience: String, jwtSecret: String) {
     route("/users") {
@@ -62,7 +51,7 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
             }
 
             // Return user data
-            val user = User(userRow[Users.username], userRow[Users.id])
+            val user = UserRoutingUtil.User(userRow[Users.username], userRow[Users.id])
             call.respond(HttpStatusCode.OK, user)
         }
 
@@ -77,10 +66,10 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
                 return@put
             }
 
-            val user = call.receive<PartialUser>()
+            val user = call.receive<UserRoutingUtil.PartialUser>()
 
             // Get user id from the token
-            val userId = AuthRoutingUtil.decodeTokenToUid(
+            val userId = UserRoutingUtil.decodeTokenToUid(
                 jwtIssuer,
                 jwtAudience,
                 jwtSecret,
@@ -121,6 +110,44 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
             call.respond(HttpStatusCode.OK, user)
         }
 
-        delete("/") {}
+        delete("/") {
+            // Check if access token is provided
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            if (accessTokenCookie.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access token provided")
+                )
+                return@delete
+            }
+
+            // Get user id from the token
+            val userId = AuthRoutingUtil.decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                accessTokenCookie
+            )
+
+            if (userId == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                )
+                return@delete
+            }
+
+            // Deleter user from DB
+            val userRow = userRepository.deleteUser(userId)
+            if (userRow) {
+                call.respond(HttpStatusCode.OK)
+                return@delete
+            }
+
+            call.respond(
+                HttpStatusCode.Conflict,
+                ErrorRouting(ErrorRoutingStatus.CONFLICT, "Error when deleting the user")
+            )
+        }
     }
 }

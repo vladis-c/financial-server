@@ -2,6 +2,7 @@ package com.vladisc.financial.server.repositories
 
 import com.vladisc.financial.server.models.Users
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.statements.UpdateStatement
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
@@ -52,6 +53,16 @@ class UserRepository {
         } catch (e: Exception) {
             return false
         }
+    }
 
+    fun deleteUser(userId: Int): Boolean {
+        return try {
+            transaction {
+                val deletedRows = Users.deleteWhere { id eq userId }
+                deletedRows > 0
+            }
+        } catch (e: Exception) {
+            false
+        }
     }
 }
