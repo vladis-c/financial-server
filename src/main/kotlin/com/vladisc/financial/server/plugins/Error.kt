@@ -1,4 +1,4 @@
-package com.vladisc.financial.server.models
+package com.vladisc.financial.server.plugins
 
 import kotlinx.serialization.Serializable
 

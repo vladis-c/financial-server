@@ -1,5 +1,6 @@
-package com.vladisc.financial.server.routing
+package com.vladisc.financial.server.routing.user
 
+import com.vladisc.financial.server.routing.RoutingUtil
 import kotlinx.serialization.Serializable
 
 object UserRoutingUtil {

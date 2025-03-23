@@ -3,8 +3,8 @@ package com.vladisc.financial.server
 import com.vladisc.financial.server.data.DatabaseFactory
 import com.vladisc.financial.server.plugins.configureAuthentication
 import com.vladisc.financial.server.repositories.UserRepository
-import com.vladisc.financial.server.routing.authRoutes
-import com.vladisc.financial.server.routing.userRouting
+import com.vladisc.financial.server.routing.auth.authRoutes
+import com.vladisc.financial.server.routing.user.userRouting
 import io.github.cdimascio.dotenv.dotenv
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*

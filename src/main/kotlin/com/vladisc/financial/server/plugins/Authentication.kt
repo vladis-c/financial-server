@@ -7,6 +7,8 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.github.cdimascio.dotenv.dotenv
 
+private const val USER_CLAIM = "uid"
+
 fun Application.configureAuthentication() {
     val dotenv = dotenv()
     val jwtSecret = dotenv["JWT_SECRET"]
@@ -22,7 +24,7 @@ fun Application.configureAuthentication() {
                     .build()
             )
             validate { credential ->
-                if (credential.payload.getClaim("userId").asInt() != null) JWTPrincipal(credential.payload) else null
+                if (credential.payload.getClaim(USER_CLAIM).asInt() != null) JWTPrincipal(credential.payload) else null
             }
         }
     }

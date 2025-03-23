@@ -1,7 +1,8 @@
-package com.vladisc.financial.server.routing
+package com.vladisc.financial.server.routing.auth
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.vladisc.financial.server.routing.RoutingUtil
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*

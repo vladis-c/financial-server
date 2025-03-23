@@ -1,9 +1,10 @@
-package com.vladisc.financial.server.routing
+package com.vladisc.financial.server.routing.user
 
-import com.vladisc.financial.server.models.ErrorRouting
-import com.vladisc.financial.server.models.ErrorRoutingStatus
+import com.vladisc.financial.server.plugins.ErrorRouting
+import com.vladisc.financial.server.plugins.ErrorRoutingStatus
 import com.vladisc.financial.server.models.Users
 import com.vladisc.financial.server.repositories.UserRepository
+import com.vladisc.financial.server.routing.auth.AuthRoutingUtil
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
