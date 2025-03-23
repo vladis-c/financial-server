@@ -2,12 +2,12 @@ package com.vladisc.financial.server.models
 
 import kotlinx.serialization.Serializable
 
-enum class ErrorStatus {
-    PARAMETER_MISSING, GENERIC_ERROR
+enum class ErrorRoutingStatus {
+    PARAMETER_MISSING, GENERIC_ERROR, CONFLICT, NOT_FOUND, UNAUTHORIZED
 }
 
 @Serializable
-data class Error (
-    val errorStatus: ErrorStatus,
+data class ErrorRouting(
+    val errorStatus: ErrorRoutingStatus,
     val errorMessage: String?
 )

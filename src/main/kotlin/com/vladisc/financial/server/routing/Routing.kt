@@ -2,6 +2,8 @@ package com.vladisc.financial.server.routing
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.vladisc.financial.server.models.ErrorRouting
+import com.vladisc.financial.server.models.ErrorRoutingStatus
 import com.vladisc.financial.server.models.Users
 import com.vladisc.financial.server.repositories.UserRepository
 import io.ktor.http.*
@@ -16,7 +18,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 private const val oneWeekInMillis = 7 * 24 * 60 * 60 * 1000L
-private const val fourWeeksInMillis = 7 * 24 * 60 * 60 * 1000L * 4
+private const val fourWeeksInMillis = oneWeekInMillis * 4
 
 private const val USER_CLAIM = "uid"
 
@@ -32,64 +34,96 @@ data class TokenResponse(val accessToken: String, val refreshToken: String?)
 fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudience: String, jwtSecret: String) {
     route("/auth") {
         post("/signup") {
-            val user = call.receive<UserCredentials>()
+            try {
+                val user = call.receive<UserCredentials>()
 
-            // Add new user
-            val success = userRepository.addUser(user.username, user.password)
+                // Add new user
+                val success = userRepository.addUser(user.username, user.password)
 
-            if (!success) {
-                call.respond(HttpStatusCode.Conflict, "Username already exists")
-                return@post
+                if (!success) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ErrorRouting(
+                            ErrorRoutingStatus.CONFLICT, "Username already exists"
+                        )
+                    )
+                    return@post
+                }
+
+                // Get created user
+                val userRow = userRepository.findUser(user.username)
+                if (userRow === null) {
+                    call.respond(
+                        HttpStatusCode.NotFound,
+                        ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User ${user.username} not found")
+                    )
+                    return@post
+                }
+
+                // Generate tokens for new user user
+                val tokenResponse = generateTokens(
+                    userRow[Users.id],
+                    jwtIssuer,
+                    jwtAudience,
+                    jwtSecret,
+                    Date(accessTokenExpiryDate),
+                    Date(refreshTokenExpiryDate),
+                )
+                setTokenHeader(call, tokenResponse)
+                call.respond(HttpStatusCode.Created, tokenResponse)
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorRouting(
+                        ErrorRoutingStatus.GENERIC_ERROR, e.message
+                    )
+                )
             }
-
-            // Get created user
-            val userRow = userRepository.findUser(user.username)
-            if (userRow === null) {
-                call.respond(HttpStatusCode.NoContent, "Username is not found")
-                return@post
-            }
-
-            // Generate tokens for new user user
-            val tokenResponse = generateTokens(
-                userRow[Users.id],
-                jwtIssuer,
-                jwtAudience,
-                jwtSecret,
-                Date(accessTokenExpiryDate),
-                Date(refreshTokenExpiryDate),
-            )
-            setTokenHeader(call, tokenResponse)
-            call.respond(HttpStatusCode.Created, tokenResponse)
         }
 
         post("/login") {
-            val user = call.receive<UserCredentials>()
+            try {
+                val user = call.receive<UserCredentials>()
 
-            // check for username in DB
-            val userRow = userRepository.findUser(user.username)
+                // check for username in DB
+                val userRow = userRepository.findUser(user.username)
 
-            if (userRow == null) {
-                call.respond(HttpStatusCode.NoContent, "Username is not found")
-                return@post
+                if (userRow == null) {
+                    call.respond(
+                        HttpStatusCode.NotFound,
+                        ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User ${user.username} not found")
+                    )
+                    return@post
+                }
+
+                // Compare input pw and stored pw in DB
+                if (!BCrypt.checkpw(user.password, userRow[Users.passwordHash])) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Invalid credentials")
+                    )
+                    return@post
+                }
+
+                // Generate new access and refresh tokens
+                val tokenResponse = generateTokens(
+                    userRow[Users.id],
+                    jwtIssuer,
+                    jwtAudience,
+                    jwtSecret,
+                    Date(accessTokenExpiryDate),
+                    Date(refreshTokenExpiryDate),
+                )
+                setTokenHeader(call, tokenResponse)
+                call.respond(HttpStatusCode.OK, tokenResponse)
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorRouting(
+                        ErrorRoutingStatus.GENERIC_ERROR, e.message
+                    )
+                )
             }
-
-            // Compare input pw and stored pw in DB
-            if (!BCrypt.checkpw(user.password, userRow[Users.passwordHash])) {
-                call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
-                return@post
-            }
-
-            // Generate new access and refresh tokens
-            val tokenResponse = generateTokens(
-                userRow[Users.id],
-                jwtIssuer,
-                jwtAudience,
-                jwtSecret,
-                Date(accessTokenExpiryDate),
-                Date(refreshTokenExpiryDate),
-            )
-            setTokenHeader(call, tokenResponse)
-            call.respond(HttpStatusCode.OK, tokenResponse)
         }
 
         post("/validate") {
@@ -98,14 +132,20 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
 
             // Check if refresh token is present
             if (accessTokenCookie.isNullOrBlank() || refreshTokenCookie.isNullOrBlank()) {
-                call.respond(HttpStatusCode.Unauthorized, "No access or refresh token provided")
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access or refresh token provided")
+                )
                 return@post
             }
 
             val (accessToken, refreshToken) = TokenResponse(accessTokenCookie, refreshTokenCookie)
 
             if (accessToken.isBlank() || refreshToken.isNullOrBlank()) {
-                call.respond(HttpStatusCode.Unauthorized, "No access or refresh token provided")
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access or refresh token provided")
+                )
                 return@post
             }
 
@@ -123,14 +163,20 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
 
                 // If refresh token has expired, return unauthorized
                 if (userId == null) {
-                    call.respond(HttpStatusCode.Unauthorized, "Token expired")
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                    )
                     return@post
                 }
 
                 // Check if user still is in the DB
                 val userRow = userRepository.findUserById(userId)
                 if (userRow == null) {
-                    call.respond(HttpStatusCode.Conflict, "User does not exist")
+                    call.respond(
+                        HttpStatusCode.NotFound,
+                        ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User not found")
+                    )
                     return@post
                 }
                 // If refresh token is valid, generate new tokens
@@ -151,7 +197,10 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
             // Check if user still is in the DB
             val userRow = userRepository.findUserById(userId)
             if (userRow == null) {
-                call.respond(HttpStatusCode.Conflict, "User does not exist")
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User not found")
+                )
                 return@post
             }
 
