@@ -8,18 +8,20 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.util.date.*
 import kotlinx.serialization.Serializable
 import org.mindrot.jbcrypt.BCrypt
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 private const val oneWeekInMillis = 7 * 24 * 60 * 60 * 1000L
-private const val refreshTokenExpiry = oneWeekInMillis * 4
+private const val fourWeeksInMillis = 7 * 24 * 60 * 60 * 1000L * 4
 
 private const val USER_CLAIM = "uid"
 
 private val accessTokenExpiryDate = System.currentTimeMillis() + oneWeekInMillis
-private val refreshTokenExpiryDate = System.currentTimeMillis() + refreshTokenExpiry
+private val refreshTokenExpiryDate = System.currentTimeMillis() + fourWeeksInMillis
 
 @Serializable
 data class UserCredentials(val username: String, val password: String)
@@ -56,7 +58,7 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 Date(accessTokenExpiryDate),
                 Date(refreshTokenExpiryDate),
             )
-            setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
+            setTokenHeader(call, tokenResponse)
             call.respond(HttpStatusCode.Created, tokenResponse)
         }
 
@@ -86,29 +88,38 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 Date(accessTokenExpiryDate),
                 Date(refreshTokenExpiryDate),
             )
-            setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
+            setTokenHeader(call, tokenResponse)
             call.respond(HttpStatusCode.OK, tokenResponse)
         }
 
         post("/validate") {
-            val tokens = call.receive<TokenResponse>()
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            val refreshTokenCookie = call.request.cookies["refreshToken"]
 
             // Check if refresh token is present
-            if (tokens.refreshToken.isNullOrBlank() || tokens.accessToken.isBlank()) {
+            if (accessTokenCookie.isNullOrBlank() || refreshTokenCookie.isNullOrBlank()) {
                 call.respond(HttpStatusCode.Unauthorized, "No access or refresh token provided")
                 return@post
             }
 
+            val (accessToken, refreshToken) = TokenResponse(accessTokenCookie, refreshTokenCookie)
+
+            if (accessToken.isBlank() || refreshToken.isNullOrBlank()) {
+                call.respond(HttpStatusCode.Unauthorized, "No access or refresh token provided")
+                return@post
+            }
+
+            // Get user id from the token
             var userId = decodeTokenToUid(
                 jwtIssuer,
                 jwtAudience,
                 jwtSecret,
-                tokens.accessToken
+                accessToken
             )
 
             // If access token has expired, use refresh token to create new tokens
             if (userId == null) {
-                userId = decodeTokenToUid(jwtIssuer, jwtAudience, jwtSecret, tokens.refreshToken)
+                userId = decodeTokenToUid(jwtIssuer, jwtAudience, jwtSecret, refreshToken)
 
                 // If refresh token has expired, return unauthorized
                 if (userId == null) {
@@ -132,7 +143,7 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                     Date(refreshTokenExpiryDate),
                 )
 
-                setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
+                setTokenHeader(call, tokenResponse)
                 call.respond(HttpStatusCode.OK, tokenResponse)
                 return@post
             }
@@ -153,8 +164,9 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 Date(accessTokenExpiryDate),
                 null
             )
-            setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
-            call.respond(HttpStatusCode.OK, TokenResponse(tokenResponse.accessToken, tokens.refreshToken))
+            val tokens = TokenResponse(tokenResponse.accessToken, refreshToken)
+            setTokenHeader(call, tokens)
+            call.respond(HttpStatusCode.OK, tokens)
 
         }
 
@@ -211,27 +223,19 @@ fun decodeTokenToUid(
 fun setTokenHeader(
     call: RoutingCall,
     tokens: TokenResponse,
-    accessTokenExpires: GMTDate,
-    refreshTokenExpires: GMTDate
 ) {
-    call.response.header(HttpHeaders.SetCookie, "")
-    call.response.cookies.append(
-        "accessToken",
-        tokens.accessToken,
-        expires = accessTokenExpires,
-        maxAge = oneWeekInMillis,
-        httpOnly = true,
-        secure = true,
-        extensions = mapOf("SameSite" to "Lax")
-    )
-    call.response.cookies.append(
-        "refreshToken",
-        tokens.refreshToken ?: "",
-        expires = refreshTokenExpires,
-        maxAge = oneWeekInMillis,
-        httpOnly = true,
-        secure = true,
-        extensions = mapOf("SameSite" to "Lax")
-    )
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+    dateFormat.timeZone = TimeZone.getTimeZone("GMT")
+
+    // Create cookie for accessToken
+    val accessTokenCookie =
+        "accessToken=${tokens.accessToken}; Expires=$dateFormat.format(accessTokenExpiryDate); HttpOnly; Max-Age=${oneWeekInMillis / 1000L}; Path=/; SameSite=Lax"
+    call.response.header(HttpHeaders.SetCookie, accessTokenCookie)
+
+    // Create cookie for refreshToken
+    val refreshTokenCookie =
+        "refreshToken=${tokens.refreshToken}; Expires=$dateFormat.format(refreshTokenExpiryDate); HttpOnly; Max-Age=${fourWeeksInMillis / 1000L}; Path=/; SameSite=Lax"
+    call.response.header(HttpHeaders.SetCookie, refreshTokenCookie)
+
 }
 
