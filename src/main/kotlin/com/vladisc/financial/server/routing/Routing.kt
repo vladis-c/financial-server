@@ -55,9 +55,8 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 jwtSecret,
                 Date(accessTokenExpiryDate),
                 Date(refreshTokenExpiryDate),
-                false
             )
-            setTokenHeader(call, tokenResponse.accessToken, GMTDate(accessTokenExpiryDate))
+            setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
             call.respond(HttpStatusCode.Created, tokenResponse)
         }
 
@@ -86,30 +85,44 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 jwtSecret,
                 Date(accessTokenExpiryDate),
                 Date(refreshTokenExpiryDate),
-                false
             )
-            setTokenHeader(call, tokenResponse.accessToken, GMTDate(accessTokenExpiryDate))
+            setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
             call.respond(HttpStatusCode.OK, tokenResponse)
         }
 
         post("/validate") {
             val tokens = call.receive<TokenResponse>()
 
-            try {
-                val userId = decodeTokenToUid(
-                    jwtIssuer,
-                    jwtAudience,
-                    jwtSecret,
-                    tokens.accessToken
-                )
+            // Check if refresh token is present
+            if (tokens.refreshToken.isNullOrBlank() || tokens.accessToken.isBlank()) {
+                call.respond(HttpStatusCode.Unauthorized, "No access or refresh token provided")
+                return@post
+            }
 
-                val userRow = userRepository.findUserById(userId)
+            var userId = decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                tokens.accessToken
+            )
 
-                if (userRow == null) {
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+            // If access token has expired, use refresh token to create new tokens
+            if (userId == null) {
+                userId = decodeTokenToUid(jwtIssuer, jwtAudience, jwtSecret, tokens.refreshToken)
+
+                // If refresh token has expired, return unauthorized
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, "Token expired")
                     return@post
                 }
 
+                // Check if user still is in the DB
+                val userRow = userRepository.findUserById(userId)
+                if (userRow == null) {
+                    call.respond(HttpStatusCode.Conflict, "User does not exist")
+                    return@post
+                }
+                // If refresh token is valid, generate new tokens
                 val tokenResponse = generateTokens(
                     userRow[Users.id],
                     jwtIssuer,
@@ -117,13 +130,32 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                     jwtSecret,
                     Date(accessTokenExpiryDate),
                     Date(refreshTokenExpiryDate),
-                    true
                 )
-                setTokenHeader(call, tokenResponse.accessToken, GMTDate(accessTokenExpiryDate))
+
+                setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
                 call.respond(HttpStatusCode.OK, tokenResponse)
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.Unauthorized, "Token expired")
+                return@post
             }
+
+            // Check if user still is in the DB
+            val userRow = userRepository.findUserById(userId)
+            if (userRow == null) {
+                call.respond(HttpStatusCode.Conflict, "User does not exist")
+                return@post
+            }
+
+            // Generate new access token, leave refresh token
+            val tokenResponse = generateTokens(
+                userRow[Users.id],
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                Date(accessTokenExpiryDate),
+                null
+            )
+            setTokenHeader(call, tokenResponse, GMTDate(accessTokenExpiryDate), GMTDate(refreshTokenExpiryDate))
+            call.respond(HttpStatusCode.OK, TokenResponse(tokenResponse.accessToken, tokens.refreshToken))
+
         }
 
     }
@@ -135,8 +167,7 @@ fun generateTokens(
     jwtAudience: String,
     jwtSecret: String,
     expirationDate: Date,
-    refreshExpirationDate: Date,
-    onlyAccessToken: Boolean?
+    refreshExpirationDate: Date?,
 ): TokenResponse {
     val accessToken = JWT.create()
         .withIssuer(jwtIssuer)
@@ -145,7 +176,7 @@ fun generateTokens(
         .withExpiresAt(expirationDate)
         .sign(Algorithm.HMAC256(jwtSecret))
 
-    if (onlyAccessToken == true) {
+    if (refreshExpirationDate == null) {
         return TokenResponse(accessToken, null)
     }
     val refreshToken = JWT.create()
@@ -163,20 +194,40 @@ fun decodeTokenToUid(
     jwtAudience: String,
     jwtSecret: String,
     token: String
-): Int {
-    val decodedToken = JWT.require(Algorithm.HMAC256(jwtSecret))
-        .withIssuer(jwtIssuer)
-        .withAudience(jwtAudience)
-        .build()
-        .verify(token)
-    return decodedToken.getClaim(USER_CLAIM).asInt()
+): Int? {
+    try {
+        val decodedToken = JWT.require(Algorithm.HMAC256(jwtSecret))
+            .withIssuer(jwtIssuer)
+            .withAudience(jwtAudience)
+            .build()
+            .verify(token)
+        return decodedToken.getClaim(USER_CLAIM).asInt()
+    } catch (e: Exception) {
+        return null
+    }
+
 }
 
-fun setTokenHeader(call: RoutingCall, token: String, expires: GMTDate) {
+fun setTokenHeader(
+    call: RoutingCall,
+    tokens: TokenResponse,
+    accessTokenExpires: GMTDate,
+    refreshTokenExpires: GMTDate
+) {
+    call.response.header(HttpHeaders.SetCookie, "")
     call.response.cookies.append(
-        "sessionid",
-        token,
-        expires = expires,
+        "accessToken",
+        tokens.accessToken,
+        expires = accessTokenExpires,
+        maxAge = oneWeekInMillis,
+        httpOnly = true,
+        secure = true,
+        extensions = mapOf("SameSite" to "Lax")
+    )
+    call.response.cookies.append(
+        "refreshToken",
+        tokens.refreshToken ?: "",
+        expires = refreshTokenExpires,
         maxAge = oneWeekInMillis,
         httpOnly = true,
         secure = true,
