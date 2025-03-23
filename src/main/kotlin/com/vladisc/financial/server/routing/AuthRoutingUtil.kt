@@ -56,17 +56,8 @@ object AuthRoutingUtil {
         jwtAudience: String,
         jwtSecret: String,
         token: String
-    ): Int? {
-        try {
-            val decodedToken = JWT.require(Algorithm.HMAC256(jwtSecret))
-                .withIssuer(jwtIssuer)
-                .withAudience(jwtAudience)
-                .build()
-                .verify(token)
-            return decodedToken.getClaim(USER_CLAIM).asInt()
-        } catch (e: Exception) {
-            return null
-        }
+    ):  Int? {
+       return RoutingUtil.decodeTokenToUid(jwtIssuer, jwtAudience, jwtSecret, token, USER_CLAIM)
     }
 
     fun setTokenHeader(
@@ -88,5 +79,4 @@ object AuthRoutingUtil {
             "refreshToken=${tokens.refreshToken}; Expires=$refreshTokenExp; HttpOnly; Max-Age=${FOUR_WEEKS_MS / 1000L}; Path=/; SameSite=Lax"
         call.response.header(HttpHeaders.SetCookie, refreshTokenCookie)
     }
-
 }

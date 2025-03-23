@@ -4,6 +4,7 @@ import com.vladisc.financial.server.data.DatabaseFactory
 import com.vladisc.financial.server.plugins.configureAuthentication
 import com.vladisc.financial.server.repositories.UserRepository
 import com.vladisc.financial.server.routing.authRoutes
+import com.vladisc.financial.server.routing.userRouting
 import io.github.cdimascio.dotenv.dotenv
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -34,5 +35,6 @@ fun Application.module() {
 
     routing {
         authRoutes(userRepository, jwtUrl, jwtUrl, jwtSecret)
+        userRouting(userRepository, jwtUrl, jwtUrl, jwtSecret)
     }
 }
