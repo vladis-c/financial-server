@@ -1,8 +1,8 @@
 package com.vladisc.financial.server.routing.auth
 
+import com.vladisc.financial.server.models.*
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
-import com.vladisc.financial.server.models.Users
 import com.vladisc.financial.server.repositories.UserRepository
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -15,34 +15,44 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
     route("/auth") {
         post("/signup") {
             try {
-                val user = call.receive<AuthRoutingUtil.UserCredentials>()
+                val user = call.receive<SignupUser>()
+
+                if (user.password.isBlank() || user.email.isBlank()) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        ErrorRouting(
+                            ErrorRoutingStatus.PARAMETER_MISSING, "Password or email is missing"
+                        )
+                    )
+                    return@post
+                }
 
                 // Add new user
-                val success = userRepository.addUser(user.username, user.password)
+                val success = userRepository.addUser(user)
 
                 if (!success) {
                     call.respond(
                         HttpStatusCode.Conflict,
                         ErrorRouting(
-                            ErrorRoutingStatus.CONFLICT, "Username already exists"
+                            ErrorRoutingStatus.CONFLICT, "Email already registered"
                         )
                     )
                     return@post
                 }
 
                 // Get created user
-                val userRow = userRepository.findUser(user.username)
+                val userRow = userRepository.findUser(user.email)
                 if (userRow === null) {
                     call.respond(
                         HttpStatusCode.NotFound,
-                        ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User ${user.username} not found")
+                        ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User ${user.email} not found")
                     )
                     return@post
                 }
 
                 // Generate tokens for new user user
                 val tokenResponse = AuthRoutingUtil.generateTokens(
-                    userRow[Users.id],
+                    userRow[UsersTable.id],
                     jwtIssuer,
                     jwtAudience,
                     jwtSecret,
@@ -63,21 +73,21 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
 
         post("/login") {
             try {
-                val user = call.receive<AuthRoutingUtil.UserCredentials>()
+                val user = call.receive<UserCredentials>()
 
-                // check for username in DB
-                val userRow = userRepository.findUser(user.username)
+                // check for user by email in DB
+                val userRow = userRepository.findUser(user.email)
 
                 if (userRow == null) {
                     call.respond(
                         HttpStatusCode.NotFound,
-                        ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User ${user.username} not found")
+                        ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User ${user.email} not found")
                     )
                     return@post
                 }
 
                 // Compare input pw and stored pw in DB
-                if (!BCrypt.checkpw(user.password, userRow[Users.passwordHash])) {
+                if (!BCrypt.checkpw(user.password, userRow[UsersTable.password])) {
                     call.respond(
                         HttpStatusCode.Unauthorized,
                         ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Invalid credentials")
@@ -87,7 +97,7 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
 
                 // Generate new access and refresh tokens
                 val tokenResponse = AuthRoutingUtil.generateTokens(
-                    userRow[Users.id],
+                    userRow[UsersTable.id],
                     jwtIssuer,
                     jwtAudience,
                     jwtSecret,
@@ -119,7 +129,7 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 return@post
             }
 
-            val (accessToken, refreshToken) = AuthRoutingUtil.TokenResponse(accessTokenCookie, refreshTokenCookie)
+            val (accessToken, refreshToken) = TokenResponse(accessTokenCookie, refreshTokenCookie)
 
             if (accessToken.isBlank() || refreshToken.isNullOrBlank()) {
                 call.respond(
@@ -161,7 +171,7 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                 }
                 // If refresh token is valid, generate new tokens
                 val tokenResponse = AuthRoutingUtil.generateTokens(
-                    userRow[Users.id],
+                    userRow[UsersTable.id],
                     jwtIssuer,
                     jwtAudience,
                     jwtSecret,
@@ -186,14 +196,14 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
 
             // Generate new access token, leave refresh token
             val tokenResponse = AuthRoutingUtil.generateTokens(
-                userRow[Users.id],
+                userRow[UsersTable.id],
                 jwtIssuer,
                 jwtAudience,
                 jwtSecret,
                 Date(AuthRoutingUtil.accessTokenExpiryDate),
                 null
             )
-            val tokens = AuthRoutingUtil.TokenResponse(tokenResponse.accessToken, refreshToken)
+            val tokens = TokenResponse(tokenResponse.accessToken, refreshToken)
             AuthRoutingUtil.setTokenHeader(call, tokens)
             call.respond(HttpStatusCode.OK, tokens)
         }

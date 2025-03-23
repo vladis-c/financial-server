@@ -1,28 +1,32 @@
 package com.vladisc.financial.server.repositories
 
-import com.vladisc.financial.server.models.Users
+import com.vladisc.financial.server.models.SignupUser
+import com.vladisc.financial.server.models.UsersTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.statements.UpdateStatement
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
+import java.time.LocalDate
 
 class UserRepository {
-    fun addUser(username: String, password: String): Boolean {
-        val hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt())
-
+    fun addUser(user: SignupUser): Boolean {
         return transaction {
-            val inserted = Users.insertIgnore {
-                it[Users.username] = username
-                it[passwordHash] = hashedPassword
+            val inserted = UsersTable.insertIgnore {
+                it[email] = user.email
+                it[password] = BCrypt.hashpw(user.password, BCrypt.gensalt())
+                it[firstName] = user.firstName
+                it[lastName] = user.lastName
+                it[dateOfBirth] = LocalDate.parse(user.dateOfBirth)
             }
             inserted.insertedCount > 0
+            // TODO: create a table
         }
     }
 
-    fun findUser(username: String): ResultRow? {
+    fun findUser(email: String): ResultRow? {
         val usersList = transaction {
-            Users.selectAll().where { Users.username eq username }.toList()
+            UsersTable.selectAll().where { UsersTable.email eq email }.toList()
         }
         return if (usersList.isEmpty()) {
             null
@@ -33,7 +37,7 @@ class UserRepository {
 
     fun findUserById(id: Int): ResultRow? {
         val usersList = transaction {
-            Users.selectAll().where { Users.id eq id }.toList()
+            UsersTable.selectAll().where { UsersTable.id eq id }.toList()
         }
         return if (usersList.isEmpty()) {
             null
@@ -42,10 +46,10 @@ class UserRepository {
         }
     }
 
-    fun updateUser(userId: Int, updates: Users.(UpdateStatement) -> Unit): Boolean {
+    fun updateUser(userId: Int, updates: UsersTable.(UpdateStatement) -> Unit): Boolean {
         try {
             return transaction {
-                val updateStatement = Users.update({ Users.id eq userId }) {
+                val updateStatement = UsersTable.update({ UsersTable.id eq userId }) {
                     updates(it) // Apply user-provided updates
                 }
                 return@transaction updateStatement != 0 // No fields were modified, return false
@@ -58,7 +62,7 @@ class UserRepository {
     fun deleteUser(userId: Int): Boolean {
         return try {
             transaction {
-                val deletedRows = Users.deleteWhere { id eq userId }
+                val deletedRows = UsersTable.deleteWhere { id eq userId }
                 deletedRows > 0
             }
         } catch (e: Exception) {

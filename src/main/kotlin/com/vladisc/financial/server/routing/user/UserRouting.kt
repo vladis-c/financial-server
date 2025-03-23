@@ -1,8 +1,10 @@
 package com.vladisc.financial.server.routing.user
 
+import com.vladisc.financial.server.models.PartialUser
+import com.vladisc.financial.server.models.User
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
-import com.vladisc.financial.server.models.Users
+import com.vladisc.financial.server.models.UsersTable
 import com.vladisc.financial.server.repositories.UserRepository
 import com.vladisc.financial.server.routing.auth.AuthRoutingUtil
 import io.ktor.http.*
@@ -10,6 +12,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.mindrot.jbcrypt.BCrypt
+import java.time.LocalDate
 
 
 fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudience: String, jwtSecret: String) {
@@ -52,7 +55,14 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
             }
 
             // Return user data
-            val user = UserRoutingUtil.User(userRow[Users.username], userRow[Users.id])
+            val user = User(
+                userRow[UsersTable.email],
+                userRow[UsersTable.id],
+                userRow[UsersTable.firstName],
+                userRow[UsersTable.lastName],
+                userRow[UsersTable.dateOfBirth].toString(),
+                null
+            )
             call.respond(HttpStatusCode.OK, user)
         }
 
@@ -67,7 +77,7 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
                 return@put
             }
 
-            val user = call.receive<UserRoutingUtil.PartialUser>()
+            val user = call.receive<PartialUser>()
 
             // Get user id from the token
             val userId = UserRoutingUtil.decodeTokenToUid(
@@ -97,13 +107,22 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
 
 
             userRepository.updateUser(userId) {
-                if (user.username != null) {
-                    it[username] = user.username
+                if (user.email != null) {
+                    it[email] = user.email
                 }
                 if (user.newPassword != null && user.oldPassword != null) {
-                    if (BCrypt.checkpw(user.oldPassword, userRow[passwordHash])) {
-                        it[passwordHash] = BCrypt.hashpw(user.newPassword, BCrypt.gensalt())
+                    if (BCrypt.checkpw(user.oldPassword, userRow[password])) {
+                        it[password] = BCrypt.hashpw(user.newPassword, BCrypt.gensalt())
                     }
+                }
+                if (user.firstName != null) {
+                    it[firstName] = user.firstName
+                }
+                if (user.lastName != null) {
+                    it[lastName] = user.lastName
+                }
+                if (user.dateOfBirth != null) {
+                    it[dateOfBirth] = LocalDate.parse(user.dateOfBirth)
                 }
             }
 

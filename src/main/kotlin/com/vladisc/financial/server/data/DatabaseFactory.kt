@@ -3,7 +3,7 @@ package com.vladisc.financial.server.data
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import com.vladisc.financial.server.models.Users
+import com.vladisc.financial.server.models.UsersTable
 import io.github.cdimascio.dotenv.dotenv
 
 object DatabaseFactory {
@@ -18,7 +18,7 @@ object DatabaseFactory {
         Database.connect(url, driver, user, password)
 
         transaction {
-            SchemaUtils.create(Users)
+            SchemaUtils.create(UsersTable)
         }
     }
 }

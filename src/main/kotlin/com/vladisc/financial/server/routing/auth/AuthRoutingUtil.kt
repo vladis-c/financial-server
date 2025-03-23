@@ -2,6 +2,7 @@ package com.vladisc.financial.server.routing.auth
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.vladisc.financial.server.models.TokenResponse
 import com.vladisc.financial.server.routing.RoutingUtil
 import io.ktor.http.*
 import io.ktor.server.response.*
@@ -18,11 +19,6 @@ object AuthRoutingUtil {
     val accessTokenExpiryDate = System.currentTimeMillis() + ONE_WEEK_MS
     val refreshTokenExpiryDate = System.currentTimeMillis() + FOUR_WEEKS_MS
 
-    @Serializable
-    data class UserCredentials(val username: String, val password: String)
-
-    @Serializable
-    data class TokenResponse(val accessToken: String, val refreshToken: String?)
 
     fun generateTokens(
         userId: Int?,
