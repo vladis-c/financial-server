@@ -16,6 +16,11 @@ import java.util.Date
 private const val oneWeekInMillis = 7 * 24 * 60 * 60 * 1000L
 private const val refreshTokenExpiry = oneWeekInMillis * 4
 
+private const val USER_CLAIM = "uid"
+
+private val accessTokenExpiryDate = System.currentTimeMillis() + oneWeekInMillis
+private val refreshTokenExpiryDate = System.currentTimeMillis() + refreshTokenExpiry
+
 @Serializable
 data class UserCredentials(val username: String, val password: String)
 
@@ -25,55 +30,65 @@ data class TokenResponse(val accessToken: String, val refreshToken: String?)
 fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudience: String, jwtSecret: String) {
     route("/auth") {
         post("/signup") {
-            val credentials = call.receive<UserCredentials>()
-            val user = UserCredentials(credentials.username, credentials.password)
+            val user = call.receive<UserCredentials>()
+
+            // Add new user
             val success = userRepository.addUser(user.username, user.password)
-            if (success) {
-                val userRow = userRepository.findUser(user.username)
-                val tokenResponse = generateTokens(
-                    userRow?.get(Users.id),
-                    jwtIssuer,
-                    jwtAudience,
-                    jwtSecret,
-                    Date(System.currentTimeMillis() + oneWeekInMillis),
-                    Date(System.currentTimeMillis() + refreshTokenExpiry),
-                    false
-                )
-                setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
-                call.respond(HttpStatusCode.Created, tokenResponse)
-            } else {
+
+            if (!success) {
                 call.respond(HttpStatusCode.Conflict, "Username already exists")
+                return@post
             }
-        }
 
-        post("/login") {
-            val credentials = call.receive<UserCredentials>()
-            val user = UserCredentials(credentials.username, credentials.password)
+            // Get created user
             val userRow = userRepository.findUser(user.username)
-
-            if (userRow == null) {
-                call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
+            if (userRow === null) {
+                call.respond(HttpStatusCode.NoContent, "Username is not found")
                 return@post
             }
 
-            val storedPassword = userRow[Users.passwordHash] // Get stored password from DB
-
-            if (!BCrypt.checkpw(user.password, storedPassword)) { // Compare passwords
-                call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
-                return@post
-            }
-
-            val expirationDate = Date(System.currentTimeMillis() + oneWeekInMillis)
+            // Generate tokens for new user user
             val tokenResponse = generateTokens(
                 userRow[Users.id],
                 jwtIssuer,
                 jwtAudience,
                 jwtSecret,
-                expirationDate,
-                Date(System.currentTimeMillis() + refreshTokenExpiry),
+                Date(accessTokenExpiryDate),
+                Date(refreshTokenExpiryDate),
                 false
             )
-            setTokenHeader(call, tokenResponse.accessToken, GMTDate(System.currentTimeMillis() + oneWeekInMillis))
+            setTokenHeader(call, tokenResponse.accessToken, GMTDate(accessTokenExpiryDate))
+            call.respond(HttpStatusCode.Created, tokenResponse)
+        }
+
+        post("/login") {
+            val user = call.receive<UserCredentials>()
+
+            // check for username in DB
+            val userRow = userRepository.findUser(user.username)
+
+            if (userRow == null) {
+                call.respond(HttpStatusCode.NoContent, "Username is not found")
+                return@post
+            }
+
+            // Compare input pw and stored pw in DB
+            if (!BCrypt.checkpw(user.password, userRow[Users.passwordHash])) {
+                call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
+                return@post
+            }
+
+            // Generate new access and refresh tokens
+            val tokenResponse = generateTokens(
+                userRow[Users.id],
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                Date(accessTokenExpiryDate),
+                Date(refreshTokenExpiryDate),
+                false
+            )
+            setTokenHeader(call, tokenResponse.accessToken, GMTDate(accessTokenExpiryDate))
             call.respond(HttpStatusCode.OK, tokenResponse)
         }
 
@@ -81,30 +96,31 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
             val tokens = call.receive<TokenResponse>()
 
             try {
-                val decodedToken = JWT.require(Algorithm.HMAC256(jwtSecret))
-                    .withIssuer(jwtIssuer)
-                    .withAudience(jwtAudience)
-                    .build()
-                    .verify(tokens.accessToken)
+                val userId = decodeTokenToUid(
+                    jwtIssuer,
+                    jwtAudience,
+                    jwtSecret,
+                    tokens.accessToken
+                )
 
-                val expirationDate = Date(System.currentTimeMillis() + oneWeekInMillis)
-                val userId = decodedToken.getClaim("userId").asInt()
                 val userRow = userRepository.findUserById(userId)
 
-                if (userRow != null) {
-                    val tokenResponse = generateTokens(
-                        userRow[Users.id],
-                        jwtIssuer,
-                        jwtAudience,
-                        jwtSecret,
-                        expirationDate,
-                        Date(System.currentTimeMillis() + refreshTokenExpiry),
-                        true
-                    )
-                    call.respond(HttpStatusCode.OK, mapOf("accessToken" to tokenResponse.accessToken))
-                } else {
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid refresh token")
+                if (userRow == null) {
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+                    return@post
                 }
+
+                val tokenResponse = generateTokens(
+                    userRow[Users.id],
+                    jwtIssuer,
+                    jwtAudience,
+                    jwtSecret,
+                    Date(accessTokenExpiryDate),
+                    Date(refreshTokenExpiryDate),
+                    true
+                )
+                setTokenHeader(call, tokenResponse.accessToken, GMTDate(accessTokenExpiryDate))
+                call.respond(HttpStatusCode.OK, tokenResponse)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.Unauthorized, "Token expired")
             }
@@ -125,7 +141,7 @@ fun generateTokens(
     val accessToken = JWT.create()
         .withIssuer(jwtIssuer)
         .withAudience(jwtAudience)
-        .withClaim("userId", userId)
+        .withClaim(USER_CLAIM, userId)
         .withExpiresAt(expirationDate)
         .sign(Algorithm.HMAC256(jwtSecret))
 
@@ -135,11 +151,25 @@ fun generateTokens(
     val refreshToken = JWT.create()
         .withIssuer(jwtIssuer)
         .withAudience(jwtAudience)
-        .withClaim("userId", userId)
+        .withClaim(USER_CLAIM, userId)
         .withExpiresAt(refreshExpirationDate)
         .sign(Algorithm.HMAC256(jwtSecret))
 
     return TokenResponse(accessToken, refreshToken)
+}
+
+fun decodeTokenToUid(
+    jwtIssuer: String,
+    jwtAudience: String,
+    jwtSecret: String,
+    token: String
+): Int {
+    val decodedToken = JWT.require(Algorithm.HMAC256(jwtSecret))
+        .withIssuer(jwtIssuer)
+        .withAudience(jwtAudience)
+        .build()
+        .verify(token)
+    return decodedToken.getClaim(USER_CLAIM).asInt()
 }
 
 fun setTokenHeader(call: RoutingCall, token: String, expires: GMTDate) {

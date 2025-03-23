@@ -19,18 +19,25 @@ class UserRepository {
     }
 
     fun findUser(username: String): ResultRow? {
-        return transaction {
-            Users.selectAll()
-                .toList()
-                .find { it[Users.username] == username }
+        val usersList =  transaction {
+            Users.selectAll().where { Users.username eq username }.toList()
+        }
+        return if (usersList.isEmpty()) {
+            null
+        } else {
+            usersList[0]
         }
     }
 
-    fun findUserById(userId: Int): ResultRow? {
-        return transaction {
-            Users.selectAll()
-                .toList()
-                .find { it[Users.id] == userId }
+    fun findUserById(id: Int): ResultRow? {
+        val usersList =  transaction {
+            Users.selectAll().where { Users.id eq id }.toList()
         }
+        return if (usersList.isEmpty()) {
+            null
+        } else {
+            usersList[0]
+        }
+
     }
 }
