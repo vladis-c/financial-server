@@ -1,24 +1,40 @@
 package com.vladisc.financial.server
 
-import com.vladisc.financial.server.plugins.configureRouting
-import com.vladisc.financial.server.plugins.healthCheck
+import com.vladisc.financial.server.data.DatabaseFactory
+import com.vladisc.financial.server.plugins.configureAuthentication
+import com.vladisc.financial.server.repositories.UserRepository
+import com.vladisc.financial.server.routing.auth.authRoutes
+import com.vladisc.financial.server.routing.user.userRouting
+import io.github.cdimascio.dotenv.dotenv
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
 import io.ktor.server.plugins.calllogging.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
 
-fun main() {
-    embeddedServer(Netty, port = 7070) {
-        install(CallLogging)
-        healthCheckModule()
-        module()
-    }.start(wait = true)
-}
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
+@Suppress("unused")
 fun Application.module() {
-    configureRouting()
-}
+    install(CallLogging)
+    install(ContentNegotiation) {
+        json(Json {
+            prettyPrint = true
+            isLenient = true
+        })
+    }
+    DatabaseFactory.init()
+    configureAuthentication()
 
-fun Application.healthCheckModule() {
-    healthCheck()
+    val userRepository = UserRepository()
+
+    val dotenv = dotenv()
+    val jwtSecret = dotenv["JWT_SECRET"]
+    val jwtUrl = dotenv["JWT_URL"]
+
+    routing {
+        authRoutes(userRepository, jwtUrl, jwtUrl, jwtSecret)
+        userRouting(userRepository, jwtUrl, jwtUrl, jwtSecret)
+    }
 }
