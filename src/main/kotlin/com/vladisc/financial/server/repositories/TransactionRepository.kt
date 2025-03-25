@@ -5,7 +5,9 @@ import com.vladisc.financial.server.models.TransactionsTable
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.statements.UpdateStatement
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
 import java.time.LocalDateTime
 
 class TransactionRepository {
@@ -41,6 +43,18 @@ class TransactionRepository {
         return transactionList
     }
 
-    fun updateTransaction() {}
+    fun updateTransaction(transactionId: String, updates: TransactionsTable.(UpdateStatement) -> Unit): Boolean {
+        try {
+            return transaction {
+                val updateStatement = TransactionsTable.update({ TransactionsTable.id eq transactionId }) {
+                    updates(it)
+                }
+                return@transaction updateStatement != 0
+            }
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
     fun deleteTransaction() {}
 }

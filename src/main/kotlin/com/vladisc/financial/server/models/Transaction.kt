@@ -20,3 +20,11 @@ data class Transaction(
     val amount: Float,
     val name: String,
 )
+
+
+@Serializable
+data class PartialTransaction(
+    val timestamp: String? = null,
+    val amount: Float? = null,
+    val name: String? = null,
+)

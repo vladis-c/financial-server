@@ -1,6 +1,7 @@
 package com.vladisc.financial.server.routing.transaction
 
 
+import com.vladisc.financial.server.models.PartialTransaction
 import com.vladisc.financial.server.models.Transaction
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
@@ -11,6 +12,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.time.LocalDateTime
 
 fun Route.transactionRouting(
     userRepository: UserRepository,
@@ -206,7 +208,72 @@ fun Route.transactionRouting(
 
         }
 
-        put("/{id}") {}
+        put("/{id}") {
+            // Check if access token is provided
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            if (accessTokenCookie.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access token provided")
+                )
+                return@put
+            }
+
+            // Check if transaction id has been provided
+            val transactionId = call.parameters["id"]
+            if (transactionId == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "No transaction id provided")
+                )
+                return@put
+            }
+
+            // Get user id from the token
+            val userId = AuthRoutingUtil.decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                accessTokenCookie
+            )
+
+            if (userId == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                )
+                return@put
+            }
+
+            // Check if user exists in DB
+            val userRow = userRepository.findUserById(userId)
+            if (userRow == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User not found")
+                )
+                return@put
+            }
+
+            // Check transaction parameters via body
+
+            val transaction = call.receive<PartialTransaction>()
+            transactionRepository.updateTransaction(transactionId) {
+                if (!transaction.timestamp.isNullOrBlank()) {
+                    it[timestamp] = LocalDateTime.parse(transaction.timestamp)
+                }
+                if (transaction.amount != null && transaction.amount.toString().isNotBlank()) {
+                    it[amount] = transaction.amount.toBigDecimal()
+                }
+                if (!transaction.name.isNullOrBlank()) {
+                    it[name] = transaction.name
+                }
+            }
+
+            // Return transaction data
+            call.respond(HttpStatusCode.OK, transaction)
+
+        }
 
         delete("/{id}") {}
     }
