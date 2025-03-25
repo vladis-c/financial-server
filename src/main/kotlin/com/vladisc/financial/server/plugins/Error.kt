@@ -3,7 +3,7 @@ package com.vladisc.financial.server.plugins
 import kotlinx.serialization.Serializable
 
 enum class ErrorRoutingStatus {
-    PARAMETER_MISSING, GENERIC_ERROR, CONFLICT, NOT_FOUND, UNAUTHORIZED
+    PARAMETER_MISSING, GENERIC_ERROR, CONFLICT, NOT_FOUND, UNAUTHORIZED, INVALID_FORMAT
 }
 
 @Serializable
