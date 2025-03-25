@@ -20,9 +20,124 @@ fun Route.transactionRouting(
     jwtSecret: String
 ) {
     route("/users/transactions") {
-        get("/{id}") {}
+        get("/{id}") {
+            // Check if access token is provided
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            if (accessTokenCookie.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access token provided")
+                )
+                return@get
+            }
 
-        get("/") {}
+            // Check if transaction id has been provided
+            val transactionId = call.parameters["id"]
+            if (transactionId == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "No transaction id provided")
+                )
+                return@get
+            }
+
+            // Get user id from the token
+            val userId = AuthRoutingUtil.decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                accessTokenCookie
+            )
+
+            if (userId == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                )
+                return@get
+            }
+
+            // Check if user exists in DB
+            val userRow = userRepository.findUserById(userId)
+            if (userRow == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User not found")
+                )
+                return@get
+            }
+
+            // Find transaction from DB
+            val transactionRow = transactionRepository.findTransaction(transactionId)
+            if (transactionRow == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "Transaction not found")
+                )
+                return@get
+            }
+
+            val transaction = TransactionRoutingUtil.parseTransaction(transactionRow)
+            call.respond(
+                HttpStatusCode.OK, transaction
+            )
+
+        }
+
+        get("/") {
+            // Check if access token is provided
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            if (accessTokenCookie.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access token provided")
+                )
+                return@get
+            }
+
+            // Get user id from the token
+            val userId = AuthRoutingUtil.decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                accessTokenCookie
+            )
+
+            if (userId == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                )
+                return@get
+            }
+
+            // Check if user exists in DB
+            val userRow = userRepository.findUserById(userId)
+            if (userRow == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User not found")
+                )
+                return@get
+            }
+
+            val transactionRows = transactionRepository.getTransactions(userId)
+            if (transactionRows.isEmpty()) {
+                call.respond(
+                    HttpStatusCode.OK,
+                    emptyArray<Transaction>()
+                )
+                return@get
+            }
+
+            val transactions = TransactionRoutingUtil.parseTransactions(transactionRows)
+            call.respond(
+                HttpStatusCode.OK,
+                transactions
+            )
+            return@get
+
+        }
 
         post("/") {
             // Check if access token is provided
@@ -66,7 +181,11 @@ fun Route.transactionRouting(
 
             // Generate transaction id based on date, name, amount
             val transactionId =
-                TransactionUtil.generateTransactionId(transaction.timestamp, transaction.name, transaction.amount.toString())
+                TransactionRoutingUtil.generateTransactionId(
+                    transaction.timestamp,
+                    transaction.name,
+                    transaction.amount.toString()
+                )
 
             // Add transaction to transactions table
             val success = transactionRepository.addTransaction(transaction, transactionId, userId)

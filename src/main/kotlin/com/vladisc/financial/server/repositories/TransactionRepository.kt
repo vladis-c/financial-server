@@ -2,7 +2,9 @@ package com.vladisc.financial.server.repositories
 
 import com.vladisc.financial.server.models.Transaction
 import com.vladisc.financial.server.models.TransactionsTable
+import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.insertIgnore
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 
@@ -19,8 +21,26 @@ class TransactionRepository {
             inserted.insertedCount > 0
         }
     }
-    fun findTransaction() {}
-    fun getTransactions() {}
+
+    fun findTransaction(transactionId: String): ResultRow? {
+        val transactionList = transaction {
+            TransactionsTable.selectAll().where { TransactionsTable.id eq transactionId }.toList()
+        }
+        return if (transactionList.isEmpty()) {
+            null
+        } else {
+            transactionList[0]
+        }
+    }
+
+    fun getTransactions(uid: Int): List<ResultRow> {
+        val transactionList = transaction {
+            TransactionsTable.selectAll().where { TransactionsTable.userId eq uid }
+                .sortedByDescending { TransactionsTable.timestamp }.toList()
+        }
+        return transactionList
+    }
+
     fun updateTransaction() {}
     fun deleteTransaction() {}
 }
