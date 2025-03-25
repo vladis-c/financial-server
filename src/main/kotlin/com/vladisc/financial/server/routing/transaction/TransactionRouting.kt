@@ -256,7 +256,6 @@ fun Route.transactionRouting(
             }
 
             // Check transaction parameters via body
-
             val transaction = call.receive<PartialTransaction>()
             transactionRepository.updateTransaction(transactionId) {
                 if (!transaction.timestamp.isNullOrBlank()) {
@@ -275,6 +274,55 @@ fun Route.transactionRouting(
 
         }
 
-        delete("/{id}") {}
+        delete("/{id}") {
+            // Check if access token is provided
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            if (accessTokenCookie.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access token provided")
+                )
+                return@delete
+            }
+
+            // Check if transaction id has been provided
+            val transactionId = call.parameters["id"]
+            if (transactionId == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "No transaction id provided")
+                )
+                return@delete
+            }
+
+            // Get user id from the token
+            val userId = AuthRoutingUtil.decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                accessTokenCookie
+            )
+
+            if (userId == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                )
+                return@delete
+            }
+
+
+            val transactionRow = transactionRepository.deleteTransaction(transactionId)
+            if (transactionRow) {
+                call.respond(HttpStatusCode.OK)
+                return@delete
+            }
+
+            call.respond(
+                HttpStatusCode.Conflict,
+                ErrorRouting(ErrorRoutingStatus.CONFLICT, "Error when deleting the transaction")
+            )
+
+        }
     }
 }

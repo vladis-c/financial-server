@@ -2,12 +2,10 @@ package com.vladisc.financial.server.repositories
 
 import com.vladisc.financial.server.models.Transaction
 import com.vladisc.financial.server.models.TransactionsTable
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.insertIgnore
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.statements.UpdateStatement
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
 import java.time.LocalDateTime
 
 class TransactionRepository {
@@ -56,5 +54,14 @@ class TransactionRepository {
         }
     }
 
-    fun deleteTransaction() {}
+    fun deleteTransaction(transactionId: String): Boolean {
+        return try {
+            transaction {
+                val deletedRows = TransactionsTable.deleteWhere { id eq transactionId}
+                deletedRows > 0
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
