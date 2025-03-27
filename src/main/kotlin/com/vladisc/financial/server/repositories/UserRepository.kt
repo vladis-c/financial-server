@@ -20,7 +20,6 @@ class UserRepository {
                 it[dateOfBirth] = LocalDate.parse(user.dateOfBirth)
             }
             inserted.insertedCount > 0
-            // TODO: create a table
         }
     }
 

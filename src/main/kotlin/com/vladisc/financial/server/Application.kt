@@ -2,8 +2,10 @@ package com.vladisc.financial.server
 
 import com.vladisc.financial.server.data.DatabaseFactory
 import com.vladisc.financial.server.plugins.configureAuthentication
+import com.vladisc.financial.server.repositories.TransactionRepository
 import com.vladisc.financial.server.repositories.UserRepository
 import com.vladisc.financial.server.routing.auth.authRoutes
+import com.vladisc.financial.server.routing.transaction.transactionRouting
 import com.vladisc.financial.server.routing.user.userRouting
 import io.github.cdimascio.dotenv.dotenv
 import io.ktor.serialization.kotlinx.json.*
@@ -28,6 +30,7 @@ fun Application.module() {
     configureAuthentication()
 
     val userRepository = UserRepository()
+    val transactionRepository = TransactionRepository()
 
     val dotenv = dotenv()
     val jwtSecret = dotenv["JWT_SECRET"]
@@ -36,5 +39,6 @@ fun Application.module() {
     routing {
         authRoutes(userRepository, jwtUrl, jwtUrl, jwtSecret)
         userRouting(userRepository, jwtUrl, jwtUrl, jwtSecret)
+        transactionRouting(userRepository, transactionRepository, jwtUrl, jwtUrl, jwtSecret)
     }
 }

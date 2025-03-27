@@ -4,6 +4,7 @@ import com.vladisc.financial.server.models.*
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
 import com.vladisc.financial.server.repositories.UserRepository
+import com.vladisc.financial.server.routing.RoutingUtil
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -22,6 +23,26 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
                         HttpStatusCode.Unauthorized,
                         ErrorRouting(
                             ErrorRoutingStatus.PARAMETER_MISSING, "Password or email is missing"
+                        )
+                    )
+                    return@post
+                }
+
+                if (!RoutingUtil.isValidEmail(user.email)) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ErrorRouting(
+                            ErrorRoutingStatus.INVALID_FORMAT, "Invalid format of email"
+                        )
+                    )
+                    return@post
+                }
+
+                if (!RoutingUtil.isValidPassword(user.password)) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ErrorRouting(
+                            ErrorRoutingStatus.INVALID_FORMAT, "Password should be at least 4 characters long"
                         )
                     )
                     return@post
@@ -74,6 +95,36 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
         post("/login") {
             try {
                 val user = call.receive<UserCredentials>()
+
+                if (user.password.isBlank() || user.email.isBlank()) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        ErrorRouting(
+                            ErrorRoutingStatus.PARAMETER_MISSING, "Password or email is missing"
+                        )
+                    )
+                    return@post
+                }
+
+                if (!RoutingUtil.isValidEmail(user.email)) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ErrorRouting(
+                            ErrorRoutingStatus.INVALID_FORMAT, "Invalid format of email"
+                        )
+                    )
+                    return@post
+                }
+
+                if (!RoutingUtil.isValidPassword(user.password)) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ErrorRouting(
+                            ErrorRoutingStatus.INVALID_FORMAT, "Password should be at least 4 characters long"
+                        )
+                    )
+                    return@post
+                }
 
                 // check for user by email in DB
                 val userRow = userRepository.findUser(user.email)

@@ -4,13 +4,13 @@ import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.javatime.date
 
-object UsersTable : Table() {
+object UsersTable : Table("users") {
     val id = integer("id").autoIncrement()
     val email = varchar("email", 255).uniqueIndex()
-    val password = varchar("password", 255)
-    val firstName = varchar("firstName", 255)
-    val lastName = varchar("lastName", 255)
-    val dateOfBirth = date("dateOfBirth")
+    val password = varchar("password", 255).check { it.charLength() greaterEq 4 }
+    val firstName = varchar("first_name", 255)
+    val lastName = varchar("last_name", 255)
+    val dateOfBirth = date("date_of_birth")
 
     override val primaryKey = PrimaryKey(id)
 }
