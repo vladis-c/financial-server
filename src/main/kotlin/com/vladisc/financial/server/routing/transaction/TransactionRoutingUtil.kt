@@ -1,9 +1,15 @@
 package com.vladisc.financial.server.routing.transaction
 
 import com.vladisc.financial.server.models.Transaction
+import com.vladisc.financial.server.models.TransactionQueryParameters
 import com.vladisc.financial.server.models.TransactionsTable
+import io.ktor.http.*
 import org.jetbrains.exposed.sql.ResultRow
+import java.security.DrbgParameters
 import java.security.MessageDigest
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 object TransactionRoutingUtil {
     fun generateTransactionId(timestamp: String, name: String, amount: String): String {
@@ -27,4 +33,17 @@ object TransactionRoutingUtil {
         }
         return transactions
     }
+
+    fun getTransactionQueries(parameters: Parameters): TransactionQueryParameters {
+        val startDateQ = parameters["start_date"]
+        val endDateQ = parameters["end_date"]
+
+        val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val startDate = startDateQ?.let { LocalDate.parse(it, dateFormatter).atStartOfDay() }
+        val endDate = endDateQ?.let { LocalDate.parse(it, dateFormatter).atTime(23, 59, 59) }
+
+        val queryParams = TransactionQueryParameters(startDate, endDate)
+        return queryParams
+    }
 }
+

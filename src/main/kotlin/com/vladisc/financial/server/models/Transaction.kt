@@ -3,6 +3,7 @@ package com.vladisc.financial.server.models
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.datetime
+import java.time.LocalDateTime
 
 object TransactionsTable : Table("transactions") {
     val id = varchar("id", 100)
@@ -27,4 +28,9 @@ data class PartialTransaction(
     val timestamp: String? = null,
     val amount: Float? = null,
     val name: String? = null,
+)
+
+data class TransactionQueryParameters(
+    val startDate: LocalDateTime? = null,
+    val endDate: LocalDateTime? = null,
 )

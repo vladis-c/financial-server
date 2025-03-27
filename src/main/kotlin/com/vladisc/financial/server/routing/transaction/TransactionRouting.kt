@@ -123,7 +123,11 @@ fun Route.transactionRouting(
                 return@get
             }
 
-            val transactionRows = transactionRepository.getTransactions(userId)
+            // Get query parameters, if any
+            val queryParams = TransactionRoutingUtil.getTransactionQueries(call.request.queryParameters)
+
+            // Check for all transactions for this user + query
+            val transactionRows = transactionRepository.getTransactions(userId, queryParams)
             if (transactionRows.isEmpty()) {
                 call.respond(
                     HttpStatusCode.OK,

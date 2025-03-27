@@ -1,6 +1,7 @@
 package com.vladisc.financial.server.repositories
 
 import com.vladisc.financial.server.models.Transaction
+import com.vladisc.financial.server.models.TransactionQueryParameters
 import com.vladisc.financial.server.models.TransactionsTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -33,9 +34,21 @@ class TransactionRepository {
         }
     }
 
-    fun getTransactions(uid: Int): List<ResultRow> {
+    fun getTransactions(uid: Int, queryParameters: TransactionQueryParameters): List<ResultRow> {
+        val (startDate, endDate) = queryParameters
         val transactionList = transaction {
-            TransactionsTable.selectAll().where { TransactionsTable.userId eq uid }
+            TransactionsTable.selectAll().where {
+                (TransactionsTable.userId eq uid) and
+                        when {
+                            startDate != null && endDate != null -> TransactionsTable.timestamp.between(
+                                startDate,
+                                endDate
+                            )
+                            startDate != null -> TransactionsTable.timestamp.greaterEq(startDate)
+                            endDate != null -> TransactionsTable.timestamp.lessEq(endDate)
+                            else -> Op.TRUE
+                        }
+            }
                 .sortedByDescending { TransactionsTable.timestamp }.toList()
         }
         return transactionList
@@ -57,7 +70,7 @@ class TransactionRepository {
     fun deleteTransaction(transactionId: String): Boolean {
         return try {
             transaction {
-                val deletedRows = TransactionsTable.deleteWhere { id eq transactionId}
+                val deletedRows = TransactionsTable.deleteWhere { id eq transactionId }
                 deletedRows > 0
             }
         } catch (e: Exception) {
