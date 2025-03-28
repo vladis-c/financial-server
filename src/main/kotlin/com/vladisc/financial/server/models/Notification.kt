@@ -5,34 +5,32 @@ import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.datetime
 import java.time.LocalDateTime
 
-object TransactionsTable : Table("transactions") {
+object NotificationTable : Table("notifications") {
     val id = varchar("id", 100)
     val userId = integer("user_id").references(UsersTable.id)
     val timestamp = datetime("date_time")
-    val amount = decimal("amount", 10, 2)
-    val name = varchar("name", 255)
-    // TODO: later link with `notifications` table
-//    val notificationId =
-//        varchar("notification_id", 100).uniqueIndex().references(NotificationTable.id) // Links to NotificationsTable
+    val title = varchar("title", 255)
+    val body = text("body")
+
     override val primaryKey = PrimaryKey(id)
 }
 
 @Serializable
-data class Transaction(
+data class Notification(
     val timestamp: String,
-    val amount: Float,
-    val name: String,
+    val title: String,
+    val body: String,
 )
 
 
 @Serializable
-data class PartialTransaction(
+data class PartialNotification(
     val timestamp: String? = null,
-    val amount: Float? = null,
-    val name: String? = null,
+    val title: String? = null,
+    val body: String? = null,
 )
 
-data class TransactionQueryParameters(
+data class NotificationQueryParameters(
     val startDate: LocalDateTime? = null,
     val endDate: LocalDateTime? = null,
 )

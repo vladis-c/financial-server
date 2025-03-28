@@ -3,6 +3,7 @@ package com.vladisc.financial.server.repositories
 import com.vladisc.financial.server.models.Transaction
 import com.vladisc.financial.server.models.TransactionQueryParameters
 import com.vladisc.financial.server.models.TransactionsTable
+import com.vladisc.financial.server.routing.transaction.TransactionRoutingUtil
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.statements.UpdateStatement
@@ -10,7 +11,11 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 
 class TransactionRepository {
-    fun addTransaction(t: Transaction, transactionId: String, uid: Int): Boolean {
+    fun addTransaction(t: Transaction, uid: Int): Boolean {
+        // Generate transaction id based on date, name, amount
+        val transactionId =
+            TransactionRoutingUtil.generateTransactionId(t)
+
         return transaction {
             val inserted = TransactionsTable.insertIgnore {
                 it[id] = transactionId
@@ -44,6 +49,7 @@ class TransactionRepository {
                                 startDate,
                                 endDate
                             )
+
                             startDate != null -> TransactionsTable.timestamp.greaterEq(startDate)
                             endDate != null -> TransactionsTable.timestamp.lessEq(endDate)
                             else -> Op.TRUE

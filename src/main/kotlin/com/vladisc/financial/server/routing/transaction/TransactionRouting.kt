@@ -138,10 +138,8 @@ fun Route.transactionRouting(
 
             val transactions = TransactionRoutingUtil.parseTransactions(transactionRows)
             call.respond(
-                HttpStatusCode.OK,
-                transactions
+                HttpStatusCode.OK, transactions
             )
-            return@get
 
         }
 
@@ -185,16 +183,8 @@ fun Route.transactionRouting(
             // Get transaction via body
             val transaction = call.receive<Transaction>()
 
-            // Generate transaction id based on date, name, amount
-            val transactionId =
-                TransactionRoutingUtil.generateTransactionId(
-                    transaction.timestamp,
-                    transaction.name,
-                    transaction.amount.toString()
-                )
-
             // Add transaction to transactions table
-            val success = transactionRepository.addTransaction(transaction, transactionId, userId)
+            val success = transactionRepository.addTransaction(transaction, userId)
 
             if (!success) {
                 call.respond(
