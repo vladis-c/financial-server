@@ -6,6 +6,7 @@ import com.vladisc.financial.server.plugins.ErrorRoutingStatus
 import com.vladisc.financial.server.repositories.NotificationRepository
 import com.vladisc.financial.server.repositories.UserRepository
 import com.vladisc.financial.server.routing.auth.AuthRoutingUtil
+import com.vladisc.financial.server.services.OllamaService
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -126,8 +127,18 @@ fun Route.notificationRouting(
                 return@post
             }
 
+            // Get the transaction out of notification
+            val ollamaService = OllamaService()
+            val transaction = ollamaService.extractTransaction(notification)
+
+            if (transaction != null) {
+                call.respond(
+                    HttpStatusCode.OK, transaction
+                )
+            }
+
             call.respond(
-                HttpStatusCode.OK, notification
+                HttpStatusCode.PartialContent, notification
             )
 
         }
