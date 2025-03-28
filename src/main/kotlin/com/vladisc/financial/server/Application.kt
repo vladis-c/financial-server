@@ -43,6 +43,6 @@ fun Application.module() {
         authRoutes(userRepository, jwtUrl, jwtUrl, jwtSecret)
         userRouting(userRepository, jwtUrl, jwtUrl, jwtSecret)
         transactionRouting(userRepository, transactionRepository, jwtUrl, jwtUrl, jwtSecret)
-        notificationRouting(userRepository, notificationRepository, jwtUrl, jwtUrl, jwtSecret)
+        notificationRouting(userRepository, notificationRepository, transactionRepository, jwtUrl, jwtUrl, jwtSecret)
     }
 }

@@ -9,7 +9,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 
 class NotificationRepository {
-    fun addNotification(n: Notification, uid: Int): Boolean {
+    fun addNotification(n: Notification, uid: Int): String? {
         val notificationId = NotificationRoutingUtil.generateNotificationId(n)
 
         return transaction {
@@ -20,7 +20,11 @@ class NotificationRepository {
                 it[title] = n.title
                 it[body] = n.body
             }
-            inserted.insertedCount > 0
+            if (inserted.insertedCount > 0) {
+                notificationId
+            } else {
+                null
+            }
         }
     }
 

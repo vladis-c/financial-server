@@ -184,9 +184,9 @@ fun Route.transactionRouting(
             val transaction = call.receive<Transaction>()
 
             // Add transaction to transactions table
-            val success = transactionRepository.addTransaction(transaction, userId)
+            val transactionId = transactionRepository.addTransaction(transaction, userId, null)
 
-            if (!success) {
+            if (transactionId == null) {
                 call.respond(
                     HttpStatusCode.Conflict,
                     ErrorRouting(

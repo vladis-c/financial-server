@@ -21,8 +21,6 @@ class OllamaService {
 
     suspend fun extractTransaction(notification: Notification): PartialTransaction? {
         try {
-
-
             val prompt =
                 "Extract amount and store name from this notification: \"${notification.body}\". Return JSON {\"amount\": <amount>, \"name\": \"<venue>\"}. Return only object, no extra text"
             val requestBody = OllamaRequest(model = "llama3.2", prompt = prompt)
@@ -48,7 +46,6 @@ class OllamaService {
                 .joinToString("")
 
             return extractTransactionFromResponse(fullResponse)
-
         } catch (e: Exception) {
             return null
         }

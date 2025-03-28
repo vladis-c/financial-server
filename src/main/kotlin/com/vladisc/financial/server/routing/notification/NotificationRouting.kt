@@ -1,9 +1,11 @@
 package com.vladisc.financial.server.routing.notification
 
 import com.vladisc.financial.server.models.Notification
+import com.vladisc.financial.server.models.Transaction
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
 import com.vladisc.financial.server.repositories.NotificationRepository
+import com.vladisc.financial.server.repositories.TransactionRepository
 import com.vladisc.financial.server.repositories.UserRepository
 import com.vladisc.financial.server.routing.auth.AuthRoutingUtil
 import com.vladisc.financial.server.services.OllamaService
@@ -15,6 +17,7 @@ import io.ktor.server.routing.*
 fun Route.notificationRouting(
     userRepository: UserRepository,
     notificationRepository: NotificationRepository,
+    transactionRepository: TransactionRepository,
     jwtIssuer: String,
     jwtAudience: String,
     jwtSecret: String
@@ -114,10 +117,10 @@ fun Route.notificationRouting(
             // Get notification via body
             val notification = call.receive<Notification>()
 
-            // Add notification to notifications table
-            val success = notificationRepository.addNotification(notification, userId)
+            // Add notification to notifications table and get notificationId
+            val notificationId = notificationRepository.addNotification(notification, userId)
 
-            if (!success) {
+            if (notificationId == null) {
                 call.respond(
                     HttpStatusCode.Conflict,
                     ErrorRouting(
@@ -129,18 +132,34 @@ fun Route.notificationRouting(
 
             // Get the transaction out of notification
             val ollamaService = OllamaService()
-            val transaction = ollamaService.extractTransaction(notification)
+            val partialTransaction = ollamaService.extractTransaction(notification)
 
-            if (transaction != null) {
-                call.respond(
-                    HttpStatusCode.OK, transaction
-                )
+
+            if (partialTransaction != null) {
+                if (partialTransaction.amount != null && partialTransaction.name != null) {
+                    val transaction =
+                        Transaction(notification.timestamp, partialTransaction.amount, partialTransaction.name)
+
+                    val transactionId = transactionRepository.addTransaction(transaction, userId, notificationId)
+                    if (transactionId == null) {
+                        call.respond(
+                            HttpStatusCode.Conflict,
+                            ErrorRouting(
+                                ErrorRoutingStatus.CONFLICT, "Adding transaction error"
+                            )
+                        )
+                        return@post
+                    }
+                    call.respond(
+                        HttpStatusCode.OK, transaction
+                    )
+                    return@post
+
+                }
             }
-
             call.respond(
                 HttpStatusCode.PartialContent, notification
             )
-
         }
     }
 }

@@ -11,7 +11,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 
 class TransactionRepository {
-    fun addTransaction(t: Transaction, uid: Int): Boolean {
+    fun addTransaction(t: Transaction, uid: Int, notificationId: String?): String? {
         // Generate transaction id based on date, name, amount
         val transactionId =
             TransactionRoutingUtil.generateTransactionId(t)
@@ -21,10 +21,16 @@ class TransactionRepository {
                 it[id] = transactionId
                 it[userId] = uid
                 it[timestamp] = LocalDateTime.parse(t.timestamp)
-                it[name] = t.name
                 it[amount] = t.amount.toBigDecimal()
+                it[name] = t.name
+                it[TransactionsTable.notificationId] = notificationId ?: transactionId
             }
-            inserted.insertedCount > 0
+            if (inserted.insertedCount > 0) {
+                transactionId
+            } else {
+                null
+            }
+
         }
     }
 

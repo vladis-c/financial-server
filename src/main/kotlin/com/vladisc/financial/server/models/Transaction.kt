@@ -11,9 +11,9 @@ object TransactionsTable : Table("transactions") {
     val timestamp = datetime("date_time")
     val amount = decimal("amount", 10, 2)
     val name = varchar("name", 255)
-    // TODO: later link with `notifications` table
-//    val notificationId =
-//        varchar("notification_id", 100).uniqueIndex().references(NotificationTable.id) // Links to NotificationsTable
+    val notificationId =
+        varchar("notification_id", 100).uniqueIndex().references(NotificationTable.id) // Links to NotificationsTable
+
     override val primaryKey = PrimaryKey(id)
 }
 
