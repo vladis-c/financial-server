@@ -21,6 +21,9 @@ object TransactionRoutingUtil {
             transactionRow[TransactionsTable.timestamp].toString(),
             transactionRow[TransactionsTable.amount].toFloat(),
             transactionRow[TransactionsTable.name],
+            transactionRow[TransactionsTable.type],
+            transactionRow[TransactionsTable.editedBy],
+            transactionRow[TransactionsTable.completed]
         )
     }
 

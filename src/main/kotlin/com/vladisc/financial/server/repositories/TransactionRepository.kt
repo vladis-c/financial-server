@@ -24,6 +24,9 @@ class TransactionRepository {
                 it[amount] = t.amount.toBigDecimal()
                 it[name] = t.name
                 it[TransactionsTable.notificationId] = notificationId ?: transactionId
+                it[type] = t.type
+                it[editedBy] = t.editedBy
+                it[completed] = t.completed
             }
             if (inserted.insertedCount > 0) {
                 transactionId

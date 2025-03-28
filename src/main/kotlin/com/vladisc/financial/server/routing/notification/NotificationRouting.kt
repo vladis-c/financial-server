@@ -1,7 +1,9 @@
 package com.vladisc.financial.server.routing.notification
 
+import com.vladisc.financial.server.models.EditedBy
 import com.vladisc.financial.server.models.Notification
 import com.vladisc.financial.server.models.Transaction
+import com.vladisc.financial.server.models.TransactionType
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
 import com.vladisc.financial.server.repositories.NotificationRepository
@@ -136,9 +138,19 @@ fun Route.notificationRouting(
 
 
             if (partialTransaction != null) {
-                if (partialTransaction.amount != null && partialTransaction.name != null) {
+                if (partialTransaction.amount != null
+                    && partialTransaction.name != null
+                    && partialTransaction.type != null
+                ) {
                     val transaction =
-                        Transaction(notification.timestamp, partialTransaction.amount, partialTransaction.name)
+                        Transaction(
+                            notification.timestamp,
+                            partialTransaction.amount,
+                            partialTransaction.name,
+                            partialTransaction.type,
+                            EditedBy.AUTO,
+                            partialTransaction.type != TransactionType.INVOICE
+                        )
 
                     val transactionId = transactionRepository.addTransaction(transaction, userId, notificationId)
                     if (transactionId == null) {

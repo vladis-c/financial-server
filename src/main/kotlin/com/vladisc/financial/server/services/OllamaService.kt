@@ -21,8 +21,28 @@ class OllamaService {
 
     suspend fun extractTransaction(notification: Notification): PartialTransaction? {
         try {
-            val prompt =
-                "Extract amount and store name from this notification: \"${notification.body}\". Return JSON {\"amount\": <amount>, \"name\": \"<venue>\"}. Return only object, no extra text"
+            val prompt = """
+    Extract structured financial data from this banking notification: "${notification.body}".
+    
+    **Output Format (JSON, no extra text):** 
+    {
+      "amount": <amount as Float>,
+      "name": "<exact legal entity name of company or venue>",
+      "type": "<INCOME | EXPENSE | INVOICE>"
+    }
+
+    **Classification Rules:**
+    - **INCOME:** Payment received (e.g., "Taiste Oy paid 3000", "Salary from Google: 5000")
+    - **EXPENSE:** Money spent (e.g., "You paid 35.05 to K-Market", "Card purchase at Starbucks: 5.99")
+    - **INVOICE:** Pending payment (e.g., "Unconfirmed invoice: Vattenfall Oy 25,00. Due date 10.4.2025")
+    
+    **Rules:**
+    - Only return JSON, no explanation.
+    - Ensure `amount` is a **float** (e.g., `12.99`).
+    - Ensure `name` is **exactly** the company/venue name (e.g., `"K-Market"`, `"Taiste Oy"`).
+    - Ensure `type` is **one of** `"INCOME"`, `"EXPENSE"`, or `"INVOICE"`.
+""".trimIndent()
+
             val requestBody = OllamaRequest(model = "llama3.2", prompt = prompt)
 
             val response: HttpResponse = client.post("http://localhost:11434/api/generate") {
@@ -53,6 +73,7 @@ class OllamaService {
 
     private fun extractTransactionFromResponse(response: String): PartialTransaction? {
         return try {
+            println("Parsing Transaction: $response") // Debugging
             json.decodeFromString(PartialTransaction.serializer(), response)
         } catch (e: Exception) {
             null
