@@ -21,7 +21,13 @@ class OllamaService {
     private val json = Json { ignoreUnknownKeys = true }
     private val client = HttpClient(OkHttp)
 
-    suspend fun extractTransaction(notification: Notification, firstName: String, lastName: String, companyName: String): Transaction? {
+    suspend fun extractTransaction(
+        notification: Notification,
+        firstName: String,
+        lastName: String,
+        companyName: String,
+        prevTransactions: List<Transaction>
+    ): Transaction? {
         try {
             val name = "$firstName $lastName".uppercase()
             val prompt = """

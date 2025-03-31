@@ -7,6 +7,7 @@ import com.vladisc.financial.server.repositories.NotificationRepository
 import com.vladisc.financial.server.repositories.TransactionRepository
 import com.vladisc.financial.server.repositories.UserRepository
 import com.vladisc.financial.server.routing.auth.AuthRoutingUtil
+import com.vladisc.financial.server.routing.transaction.TransactionRoutingUtil
 import com.vladisc.financial.server.services.OllamaService
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -116,13 +117,19 @@ fun Route.notificationRouting(
             // Get notification via body
             val notification = call.receive<Notification>()
 
+            // Get all types of latest transactions (1 each)
+            val transactionsRows = transactionRepository.getLatestTransactionsByType(userId)
+            val transactions = TransactionRoutingUtil.parseTransactions(transactionsRows)
+
             // Get the transaction out of notification
             val ollamaService = OllamaService()
             val transactionFromLLM = ollamaService.extractTransaction(
                 notification,
                 userRow[UsersTable.firstName],
                 userRow[UsersTable.lastName],
-                userRow[UsersTable.company]
+                userRow[UsersTable.company],
+                transactions,
+
             )
 
             if (transactionFromLLM == null) {

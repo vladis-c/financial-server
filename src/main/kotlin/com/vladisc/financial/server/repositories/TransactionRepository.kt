@@ -77,6 +77,15 @@ class TransactionRepository {
         return transactionList
     }
 
+    fun getLatestTransactionsByType(uid: Int): List<ResultRow> {
+        return transaction {
+            TransactionsTable
+                .selectAll().where { TransactionsTable.userId eq uid }
+                .orderBy(TransactionsTable.timestamp, SortOrder.DESC)
+                .groupBy { it[TransactionsTable.type] to it[TransactionsTable.invoiceStatus] }
+                .map { it.value.first() } // Take the latest per group
+        }
+    }
     fun updateTransaction(t: Transaction, transactionId: String): Boolean {
         try {
             return transaction {

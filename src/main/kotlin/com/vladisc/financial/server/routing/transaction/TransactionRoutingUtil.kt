@@ -23,6 +23,8 @@ object TransactionRoutingUtil {
             transactionRow[TransactionsTable.name],
             transactionRow[TransactionsTable.type],
             transactionRow[TransactionsTable.editedBy],
+            transactionRow[TransactionsTable.dueDate].toString(),
+            transactionRow[TransactionsTable.invoiceStatus]
         )
     }
 
