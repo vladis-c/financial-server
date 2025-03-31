@@ -20,7 +20,7 @@ object TransactionsTable : Table("transactions") {
     override val primaryKey = PrimaryKey(id)
 }
 
-enum class TransactionType { INCOME, EXPENSE, INVOICE, REFUND }
+enum class TransactionType { INCOME, EXPENSE, INVOICE, REFUND, TRANSFER, DIVIDEND }
 enum class InvoiceStatus { CONFIRMED, UNCONFIRMED, CANCELED, PAID, UNPAID }
 enum class EditedBy { AUTO, USER }
 

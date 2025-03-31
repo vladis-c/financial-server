@@ -192,7 +192,6 @@ fun Route.transactionRouting(
                 return@post
             }
 
-            println("${body["timestamp"]} ${body["amount"]} ${body["name"]} ${body["type"]} ${body["editedBy"]} ${body["completed"]} ${body["dueDate"]} ${body["invoiceStatus"]}")
             val transaction = Transaction(
                 timestamp = body["timestamp"]?.jsonPrimitive?.contentOrNull,
                 amount = body["amount"]?.jsonPrimitive?.floatOrNull,

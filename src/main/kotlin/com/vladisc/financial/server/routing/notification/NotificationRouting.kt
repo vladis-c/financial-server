@@ -1,9 +1,6 @@
 package com.vladisc.financial.server.routing.notification
 
-import com.vladisc.financial.server.models.EditedBy
-import com.vladisc.financial.server.models.Notification
-import com.vladisc.financial.server.models.Transaction
-import com.vladisc.financial.server.models.TransactionType
+import com.vladisc.financial.server.models.*
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
 import com.vladisc.financial.server.repositories.NotificationRepository
@@ -121,7 +118,12 @@ fun Route.notificationRouting(
 
             // Get the transaction out of notification
             val ollamaService = OllamaService()
-            val transactionFromLLM = ollamaService.extractTransaction(notification)
+            val transactionFromLLM = ollamaService.extractTransaction(
+                notification,
+                userRow[UsersTable.firstName],
+                userRow[UsersTable.lastName],
+                userRow[UsersTable.company]
+            )
 
             if (transactionFromLLM == null) {
                 val partialTransaction = Transaction(
@@ -151,8 +153,8 @@ fun Route.notificationRouting(
                             transactionFromLLM.name,
                             transactionFromLLM.type,
                             EditedBy.AUTO,
-                            null,
-                            null
+                            transactionFromLLM.dueDate,
+                            transactionFromLLM.invoiceStatus
                         )
 
                     val transactionId = transactionRepository.addTransaction(transaction, userId)

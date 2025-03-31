@@ -1,6 +1,6 @@
 package com.vladisc.financial.server.repositories
 
-import com.vladisc.financial.server.models.SignupUser
+import com.vladisc.financial.server.models.User
 import com.vladisc.financial.server.models.UsersTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -10,14 +10,26 @@ import org.mindrot.jbcrypt.BCrypt
 import java.time.LocalDate
 
 class UserRepository {
-    fun addUser(user: SignupUser): Boolean {
+    fun addUser(user: User): Boolean {
         return transaction {
             val inserted = UsersTable.insertIgnore {
-                it[email] = user.email
+                if (!user.email.isNullOrBlank()) {
+                    it[email] = user.email
+                }
                 it[password] = BCrypt.hashpw(user.password, BCrypt.gensalt())
-                it[firstName] = user.firstName
-                it[lastName] = user.lastName
-                it[dateOfBirth] = LocalDate.parse(user.dateOfBirth)
+                if (!user.firstName.isNullOrBlank()) {
+                    it[firstName] = user.firstName
+                }
+                if (!user.lastName.isNullOrBlank()) {
+                    it[lastName] = user.lastName
+                }
+                if (!user.dateOfBirth.isNullOrBlank()) {
+                    it[dateOfBirth] = LocalDate.parse(user.dateOfBirth)
+                }
+                if(!user.company.isNullOrBlank()) {
+                    it[company] = user.company
+                }
+
             }
             inserted.insertedCount > 0
         }
@@ -45,11 +57,27 @@ class UserRepository {
         }
     }
 
-    fun updateUser(userId: Int, updates: UsersTable.(UpdateStatement) -> Unit): Boolean {
+    fun updateUser(userId: Int, user: User, currentPassword: String?): Boolean {
         try {
             return transaction {
                 val updateStatement = UsersTable.update({ UsersTable.id eq userId }) {
-                    updates(it) // Apply user-provided updates
+                    if (user.email != null) {
+                        it[email] = user.email
+                    }
+                    if (user.newPassword != null && user.password != null && currentPassword != null) {
+                        if (BCrypt.checkpw(user.password, currentPassword)) {
+                            it[password] = BCrypt.hashpw(user.newPassword, BCrypt.gensalt())
+                        }
+                    }
+                    if (user.firstName != null) {
+                        it[firstName] = user.firstName
+                    }
+                    if (user.lastName != null) {
+                        it[lastName] = user.lastName
+                    }
+                    if (user.dateOfBirth != null) {
+                        it[dateOfBirth] = LocalDate.parse(user.dateOfBirth)
+                    }
                 }
                 return@transaction updateStatement != 0 // No fields were modified, return false
             }

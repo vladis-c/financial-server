@@ -9,6 +9,9 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import org.mindrot.jbcrypt.BCrypt
 import java.util.Date
 
@@ -16,9 +19,26 @@ fun Route.authRoutes(userRepository: UserRepository, jwtIssuer: String, jwtAudie
     route("/auth") {
         post("/signup") {
             try {
-                val user = call.receive<SignupUser>()
+                // Get user via body
+                val body = call.receiveNullable<Map<String, JsonElement>>()
+                if (body == null) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "Body is empty")
+                    )
+                    return@post
+                }
 
-                if (user.password.isBlank() || user.email.isBlank()) {
+                val user = User(
+                    firstName = body["firstName"]?.jsonPrimitive?.contentOrNull,
+                    lastName = body["lastName"]?.jsonPrimitive?.contentOrNull,
+                    email = body["email"]?.jsonPrimitive?.contentOrNull,
+                    password = body["password"]?.jsonPrimitive?.contentOrNull,
+                    dateOfBirth = body["dateOfBirth"]?.jsonPrimitive?.contentOrNull,
+                    company = body["company"]?.jsonPrimitive?.contentOrNull,
+                )
+
+                if (user.password.isNullOrBlank() || user.email.isNullOrBlank()) {
                     call.respond(
                         HttpStatusCode.Unauthorized,
                         ErrorRouting(

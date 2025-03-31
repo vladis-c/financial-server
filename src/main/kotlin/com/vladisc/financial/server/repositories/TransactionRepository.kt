@@ -17,7 +17,6 @@ class TransactionRepository {
         // Generate transaction id based on date, name, amount
         val transactionId =
             TransactionRoutingUtil.generateTransactionId(t)
-
         return transaction {
             val inserted = TransactionsTable.insertIgnore {
                 it[id] = transactionId
