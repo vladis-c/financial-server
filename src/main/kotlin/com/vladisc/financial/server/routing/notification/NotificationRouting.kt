@@ -121,6 +121,9 @@ fun Route.notificationRouting(
             val transactionsRows = transactionRepository.getLatestTransactionsByType(userId)
             val transactions = TransactionRoutingUtil.parseTransactions(transactionsRows)
 
+            // Get last 5 notifications
+            val notificationRows = notificationRepository.getLastNotifications(userId, 5)
+            val notifications = NotificationRoutingUtil.parseNotifications(notificationRows)
             // Get the transaction out of notification
             val ollamaService = OllamaService()
             val transactionFromLLM = ollamaService.extractTransaction(
@@ -129,7 +132,7 @@ fun Route.notificationRouting(
                 userRow[UsersTable.lastName],
                 userRow[UsersTable.company],
                 transactions,
-
+                notifications
             )
 
             if (transactionFromLLM == null) {

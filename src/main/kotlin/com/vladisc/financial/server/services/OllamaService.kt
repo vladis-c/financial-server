@@ -26,7 +26,8 @@ class OllamaService {
         firstName: String,
         lastName: String,
         companyName: String,
-        prevTransactions: List<Transaction>
+        prevTransactions: List<Transaction>,
+        notifications: List<Notification>
     ): Transaction? {
         try {
             val name = "$firstName $lastName".uppercase()

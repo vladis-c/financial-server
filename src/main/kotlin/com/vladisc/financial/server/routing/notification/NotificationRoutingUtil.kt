@@ -20,7 +20,7 @@ object NotificationRoutingUtil {
         return Notification(
             notificationRow[NotificationTable.timestamp].toString(),
             notificationRow[NotificationTable.title],
-            notificationRow[NotificationTable.body]
+            notificationRow[NotificationTable.body],
         )
     }
 

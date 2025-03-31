@@ -55,4 +55,14 @@ class NotificationRepository {
         }
         return notificationList
     }
+
+    fun getLastNotifications(uid: Int, limit: Int): List<ResultRow> {
+        return transaction {
+            TransactionsTable
+                .selectAll().where { TransactionsTable.userId eq uid }
+                .orderBy(NotificationTable.timestamp, SortOrder.DESC)
+                .limit(limit)
+                .toList()
+        }
+    }
 }
