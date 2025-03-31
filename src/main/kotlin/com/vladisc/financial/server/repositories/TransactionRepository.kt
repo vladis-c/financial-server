@@ -1,17 +1,19 @@
 package com.vladisc.financial.server.repositories
 
+import com.vladisc.financial.server.models.EditedBy
 import com.vladisc.financial.server.models.Transaction
 import com.vladisc.financial.server.models.TransactionQueryParameters
 import com.vladisc.financial.server.models.TransactionsTable
 import com.vladisc.financial.server.routing.transaction.TransactionRoutingUtil
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNotNull
 import org.jetbrains.exposed.sql.statements.UpdateStatement
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 
 class TransactionRepository {
-    fun addTransaction(t: Transaction, uid: Int, notificationId: String?): String? {
+    fun addTransaction(t: Transaction, uid: Int): String? {
         // Generate transaction id based on date, name, amount
         val transactionId =
             TransactionRoutingUtil.generateTransactionId(t)
@@ -20,13 +22,20 @@ class TransactionRepository {
             val inserted = TransactionsTable.insertIgnore {
                 it[id] = transactionId
                 it[userId] = uid
-                it[timestamp] = LocalDateTime.parse(t.timestamp)
-                it[amount] = t.amount.toBigDecimal()
-                it[name] = t.name
-                it[TransactionsTable.notificationId] = notificationId ?: transactionId
+                if (!t.timestamp.isNullOrBlank()) {
+                    it[timestamp] = LocalDateTime.parse(t.timestamp)
+                }
+                if (t.amount != null) {
+                    it[amount] = t.amount.toBigDecimal()
+                }
+                if (!t.name.isNullOrBlank()) {
+                    it[name] = t.name
+                }
+                /// not mandatory
                 it[type] = t.type
-                it[editedBy] = t.editedBy
-                it[completed] = t.completed
+                it[editedBy] = t.editedBy ?: EditedBy.USER
+                it[dueDate] = t.dueDate?.let { date -> LocalDateTime.parse(date) }
+                it[invoiceStatus] = t.invoiceStatus
             }
             if (inserted.insertedCount > 0) {
                 transactionId
@@ -69,11 +78,32 @@ class TransactionRepository {
         return transactionList
     }
 
-    fun updateTransaction(transactionId: String, updates: TransactionsTable.(UpdateStatement) -> Unit): Boolean {
+    fun updateTransaction(t: Transaction, transactionId: String): Boolean {
         try {
             return transaction {
                 val updateStatement = TransactionsTable.update({ TransactionsTable.id eq transactionId }) {
-                    updates(it)
+                    if (!t.timestamp.isNullOrBlank()) {
+                        it[timestamp] = LocalDateTime.parse(t.timestamp)
+                    }
+                    if (t.amount != null) {
+                        it[amount] = t.amount.toBigDecimal()
+                    }
+                    if (!t.name.isNullOrBlank()) {
+                        it[name] = t.name
+                    }
+                    if (t.type != null) {
+                        it[type] = t.type
+                    }
+                    if (t.editedBy != null) {
+                        it[editedBy] = t.editedBy
+                    }
+                    if (!t.dueDate.isNullOrBlank()) {
+                        it[dueDate] = LocalDateTime.parse(t.dueDate)
+                    }
+                    if (t.invoiceStatus != null) {
+                        it[invoiceStatus] = t.invoiceStatus
+                    }
+
                 }
                 return@transaction updateStatement != 0
             }

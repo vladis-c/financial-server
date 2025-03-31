@@ -1,7 +1,7 @@
 package com.vladisc.financial.server.services
 
 import com.vladisc.financial.server.models.Notification
-import com.vladisc.financial.server.models.PartialTransaction
+import com.vladisc.financial.server.models.Transaction
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -19,7 +19,7 @@ class OllamaService {
     private val json = Json { ignoreUnknownKeys = true }
     private val client = HttpClient(OkHttp)
 
-    suspend fun extractTransaction(notification: Notification): PartialTransaction? {
+    suspend fun extractTransaction(notification: Notification): Transaction? {
         try {
             val prompt = """
     Extract structured financial data from this banking notification: "${notification.body}".
@@ -71,10 +71,10 @@ class OllamaService {
         }
     }
 
-    private fun extractTransactionFromResponse(response: String): PartialTransaction? {
+    private fun extractTransactionFromResponse(response: String): Transaction? {
         return try {
             println("Parsing Transaction: $response") // Debugging
-            json.decodeFromString(PartialTransaction.serializer(), response)
+            json.decodeFromString(Transaction.serializer(), response)
         } catch (e: Exception) {
             null
         }

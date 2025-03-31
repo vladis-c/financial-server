@@ -11,7 +11,7 @@ import java.time.format.DateTimeFormatter
 
 object TransactionRoutingUtil {
     fun generateTransactionId(t:Transaction): String {
-        val input = "${t.timestamp}-${t.name}-${t.amount}"
+        val input = "${t.timestamp}"
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }.take(20) // First 20 chars
     }
@@ -23,7 +23,6 @@ object TransactionRoutingUtil {
             transactionRow[TransactionsTable.name],
             transactionRow[TransactionsTable.type],
             transactionRow[TransactionsTable.editedBy],
-            transactionRow[TransactionsTable.completed]
         )
     }
 

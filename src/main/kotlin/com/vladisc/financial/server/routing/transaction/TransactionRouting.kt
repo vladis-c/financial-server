@@ -1,8 +1,9 @@
 package com.vladisc.financial.server.routing.transaction
 
-
-import com.vladisc.financial.server.models.PartialTransaction
+import com.vladisc.financial.server.models.EditedBy
+import com.vladisc.financial.server.models.InvoiceStatus
 import com.vladisc.financial.server.models.Transaction
+import com.vladisc.financial.server.models.TransactionType
 import com.vladisc.financial.server.plugins.ErrorRouting
 import com.vladisc.financial.server.plugins.ErrorRoutingStatus
 import com.vladisc.financial.server.repositories.TransactionRepository
@@ -12,7 +13,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import java.time.LocalDateTime
+import kotlinx.serialization.json.*
 
 fun Route.transactionRouting(
     userRepository: UserRepository,
@@ -181,10 +182,29 @@ fun Route.transactionRouting(
             }
 
             // Get transaction via body
-            val transaction = call.receive<Transaction>()
+            val body = call.receiveNullable<Map<String, JsonElement>>()
+
+            if (body == null) {
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "Body is empty")
+                )
+                return@post
+            }
+
+            println("${body["timestamp"]} ${body["amount"]} ${body["name"]} ${body["type"]} ${body["editedBy"]} ${body["completed"]} ${body["dueDate"]} ${body["invoiceStatus"]}")
+            val transaction = Transaction(
+                timestamp = body["timestamp"]?.jsonPrimitive?.contentOrNull,
+                amount = body["amount"]?.jsonPrimitive?.floatOrNull,
+                name = body["name"]?.jsonPrimitive?.contentOrNull,
+                type = body["type"]?.jsonPrimitive?.contentOrNull?.let { TransactionType.valueOf(it) },
+                editedBy = body["editedBy"]?.jsonPrimitive?.contentOrNull?.let { EditedBy.valueOf(it) },
+                dueDate = body["dueDate"]?.jsonPrimitive?.contentOrNull,
+                invoiceStatus = body["invoiceStatus"]?.jsonPrimitive?.contentOrNull?.let { InvoiceStatus.valueOf(it) }
+            )
 
             // Add transaction to transactions table
-            val transactionId = transactionRepository.addTransaction(transaction, userId, null)
+            val transactionId = transactionRepository.addTransaction(transaction, userId)
 
             if (transactionId == null) {
                 call.respond(
@@ -250,18 +270,27 @@ fun Route.transactionRouting(
             }
 
             // Check transaction parameters via body
-            val transaction = call.receive<PartialTransaction>()
-            transactionRepository.updateTransaction(transactionId) {
-                if (!transaction.timestamp.isNullOrBlank()) {
-                    it[timestamp] = LocalDateTime.parse(transaction.timestamp)
-                }
-                if (transaction.amount != null && transaction.amount.toString().isNotBlank()) {
-                    it[amount] = transaction.amount.toBigDecimal()
-                }
-                if (!transaction.name.isNullOrBlank()) {
-                    it[name] = transaction.name
-                }
+            val body = call.receiveNullable<Map<String, JsonElement>>()
+
+            if (body == null) {
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "Body is empty")
+                )
+                return@put
             }
+
+            val transaction = Transaction(
+                timestamp = body["timestamp"]?.jsonPrimitive?.contentOrNull,
+                amount = body["amount"]?.jsonPrimitive?.floatOrNull,
+                name = body["name"]?.jsonPrimitive?.contentOrNull,
+                type = body["type"]?.jsonPrimitive?.contentOrNull?.let { TransactionType.valueOf(it) },
+                editedBy = body["editedBy"]?.jsonPrimitive?.contentOrNull?.let { EditedBy.valueOf(it) },
+                dueDate = body["dueDate"]?.jsonPrimitive?.contentOrNull,
+                invoiceStatus = body["invoiceStatus"]?.jsonPrimitive?.contentOrNull?.let { InvoiceStatus.valueOf(it) }
+            )
+
+            transactionRepository.updateTransaction(transaction, transactionId)
 
             // Return transaction data
             call.respond(HttpStatusCode.OK, transaction)
