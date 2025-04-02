@@ -2,24 +2,35 @@ package com.vladisc.financial.server.services
 
 import com.vladisc.financial.server.models.Notification
 import com.vladisc.financial.server.models.Transaction
-import com.vladisc.financial.server.models.User
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.client.engine.okhttp.*
+import io.ktor.client.plugins.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.LocalDate
 
+
+@Serializable
+data class TransactionWithNotification(
+    val transaction: Transaction,
+    val notification: Notification?
+)
+
 @Serializable
 data class OllamaRequest(val model: String, val prompt: String, val stream: Boolean = false)
 
 class OllamaService {
     private val json = Json { ignoreUnknownKeys = true }
-    private val client = HttpClient(OkHttp)
+    private val client = HttpClient(OkHttp) {
+        install(HttpTimeout) {
+            requestTimeoutMillis = 20000
+        }
+    }
 
     suspend fun extractTransaction(
         notification: Notification,
@@ -27,9 +38,20 @@ class OllamaService {
         lastName: String,
         companyName: String,
         prevTransactions: List<Transaction>,
-        notifications: List<Notification>
+        prevNotifications: List<Notification>
     ): Transaction? {
         try {
+            val mergedTransactionsAndNotifications =
+                mergeTransactionsAndNotifications(prevTransactions, prevNotifications)
+            val mergedTransactionsAndNotificationsList = mergedTransactionsAndNotifications.joinToString(";\n") {
+                val notificationText = it.notification?.let { notif ->
+                    "From the notification: \"${notif.title ?: "Unknown Title"}. ${notif.body ?: "No Body"}\""
+                } ?: "No notification available"
+
+                val transactionJson = Json.encodeToString(it.transaction)
+
+                "$notificationText the following transaction \"$transactionJson\" has been created"
+            }
             val name = "$firstName $lastName".uppercase()
             val prompt = """
     Extract structured financial data from this banking notification: "${notification.title}. ${notification.body}".
@@ -53,7 +75,7 @@ class OllamaService {
     - `UNCONFIRMED` can be only when it is clearly seen from the notification, that it is unconfirmed
     - If it is not clearly possible to define `CONFIRMED` or `UNCONFIRMED`, then it is `null`
     
-    **Classification Rules:**
+    **Classification Rules with examples:**
     - **INCOME:** Payment received (e.g., "Income. TAISTE OY paid 3232,23 €")
     - **TRANSFER:** Payment received (e.g., "Income. ALEXANDER CHER paid 300 €", "Income. VIPPS MOBILEPAY AS, paid 12,50€")
     - **DIVIDEND:** Payment received (e.g., "Income. $name paid 18.18 €")
@@ -69,7 +91,6 @@ class OllamaService {
     - Ensure `invoiceStatus` is **one of** `"CONFIRMED"`, `"UNCONFIRMED"`, `"CANCELED"`, `"PAID"`, `"UNPAID"`.
     
 """.trimIndent()
-
             val requestBody = OllamaRequest(model = "llama3.2", prompt = prompt)
 
             val response: HttpResponse = client.post("http://localhost:11434/api/generate") {
@@ -91,7 +112,7 @@ class OllamaService {
                     }
                 }
                 .joinToString("")
-
+            println("Parsing Transaction: $fullResponse")
             return extractTransactionFromResponse(fullResponse)
         } catch (e: Exception) {
             return null
@@ -100,10 +121,22 @@ class OllamaService {
 
     private fun extractTransactionFromResponse(response: String): Transaction? {
         return try {
-            println("Parsing Transaction: $response") // Debugging
             json.decodeFromString(Transaction.serializer(), response)
         } catch (e: Exception) {
             null
+        }
+    }
+
+    private fun mergeTransactionsAndNotifications(
+        transactions: List<Transaction>,
+        notifications: List<Notification>
+    ): List<TransactionWithNotification> {
+        val notificationMap = notifications.associateBy { it.transactionId }
+        return transactions.map { transaction ->
+            TransactionWithNotification(
+                transaction = transaction,
+                notification = notificationMap[transaction.id]
+            )
         }
     }
 }

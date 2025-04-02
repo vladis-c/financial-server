@@ -20,9 +20,11 @@ object NotificationTable : Table("notifications") {
 
 @Serializable
 data class Notification(
+    val id: String? = null,
     val timestamp: String? = null,
     val title: String? = null,
     val body: String? = null,
+    val transactionId: String? = null,
 )
 
 data class NotificationQueryParameters(

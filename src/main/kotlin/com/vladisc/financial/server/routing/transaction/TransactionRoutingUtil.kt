@@ -1,8 +1,6 @@
 package com.vladisc.financial.server.routing.transaction
 
-import com.vladisc.financial.server.models.Transaction
-import com.vladisc.financial.server.models.TransactionQueryParameters
-import com.vladisc.financial.server.models.TransactionsTable
+import com.vladisc.financial.server.models.*
 import io.ktor.http.*
 import org.jetbrains.exposed.sql.ResultRow
 import java.security.MessageDigest
@@ -10,14 +8,15 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 object TransactionRoutingUtil {
-    fun generateTransactionId(t:Transaction): String {
-        val input = "${t.timestamp}"
+    fun generateTransactionId(timestamp: String?): String {
+        val input = "${timestamp}"
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }.take(20) // First 20 chars
     }
 
     fun parseTransaction(transactionRow: ResultRow): Transaction {
         return Transaction(
+            transactionRow[TransactionsTable.id],
             transactionRow[TransactionsTable.timestamp].toString(),
             transactionRow[TransactionsTable.amount].toFloat(),
             transactionRow[TransactionsTable.name],

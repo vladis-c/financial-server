@@ -13,6 +13,9 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 fun Route.notificationRouting(
     userRepository: UserRepository,
@@ -115,15 +118,31 @@ fun Route.notificationRouting(
             }
 
             // Get notification via body
-            val notification = call.receive<Notification>()
+            val body = call.receiveNullable<Map<String, JsonElement>>()
+            if (body == null) {
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "Body is empty")
+                )
+                return@post
+            }
+
+            val notification = Notification(
+                timestamp = body["timestamp"]?.jsonPrimitive?.contentOrNull,
+                title = body["title"]?.jsonPrimitive?.contentOrNull,
+                body = body["body"]?.jsonPrimitive?.contentOrNull,
+                id = null,
+            )
 
             // Get all types of latest transactions (1 each)
-            val transactionsRows = transactionRepository.getLatestTransactionsByType(userId)
-            val transactions = TransactionRoutingUtil.parseTransactions(transactionsRows)
+            val prevTransactionsRows = transactionRepository.getLatestTransactionsByType(userId)
+            val prevTransactions = TransactionRoutingUtil.parseTransactions(prevTransactionsRows)
+            val prevTransactionsIds = prevTransactionsRows.map { it[TransactionsTable.id] }
 
-            // Get last 5 notifications
-            val notificationRows = notificationRepository.getLastNotifications(userId, 5)
-            val notifications = NotificationRoutingUtil.parseNotifications(notificationRows)
+            // Get corresponding notifications of latest transactions
+            val prevNotificationRows = notificationRepository.getLastNotifications(userId, prevTransactionsIds)
+            val prevNotifications = NotificationRoutingUtil.parseNotifications(prevNotificationRows)
+
             // Get the transaction out of notification
             val ollamaService = OllamaService()
             val transactionFromLLM = ollamaService.extractTransaction(
@@ -131,12 +150,13 @@ fun Route.notificationRouting(
                 userRow[UsersTable.firstName],
                 userRow[UsersTable.lastName],
                 userRow[UsersTable.company],
-                transactions,
-                notifications
+                prevTransactions,
+                prevNotifications
             )
 
             if (transactionFromLLM == null) {
                 val partialTransaction = Transaction(
+                    TransactionRoutingUtil.generateTransactionId(notification.timestamp),
                     notification.timestamp,
                     0.toFloat(),
                     "undefined",
@@ -158,6 +178,7 @@ fun Route.notificationRouting(
                 ) {
                     val transaction =
                         Transaction(
+                            null,
                             notification.timestamp,
                             transactionFromLLM.amount,
                             transactionFromLLM.name,

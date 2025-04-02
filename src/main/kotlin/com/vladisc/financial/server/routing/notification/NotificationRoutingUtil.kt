@@ -18,9 +18,11 @@ object NotificationRoutingUtil {
 
     private fun parseNotification(notificationRow: ResultRow): Notification {
         return Notification(
+            notificationRow[NotificationTable.id],
             notificationRow[NotificationTable.timestamp].toString(),
             notificationRow[NotificationTable.title],
             notificationRow[NotificationTable.body],
+            notificationRow[NotificationTable.transactionId],
         )
     }
 

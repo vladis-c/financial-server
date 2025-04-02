@@ -3,6 +3,7 @@ package com.vladisc.financial.server.repositories
 import com.vladisc.financial.server.models.Notification
 import com.vladisc.financial.server.models.NotificationQueryParameters
 import com.vladisc.financial.server.models.NotificationTable
+import com.vladisc.financial.server.models.Transaction
 import com.vladisc.financial.server.models.TransactionsTable
 import com.vladisc.financial.server.routing.notification.NotificationRoutingUtil
 import org.jetbrains.exposed.sql.*
@@ -56,12 +57,18 @@ class NotificationRepository {
         return notificationList
     }
 
-    fun getLastNotifications(uid: Int, limit: Int): List<ResultRow> {
+    fun getLastNotifications(uid: Int, transactionIds: List<String>?): List<ResultRow> {
         return transaction {
-            TransactionsTable
-                .selectAll().where { TransactionsTable.userId eq uid }
+            NotificationTable
+                .selectAll().where {
+                    (NotificationTable.userId eq uid) and
+                            (if (transactionIds?.isNotEmpty() == true) {
+                                NotificationTable.transactionId inList transactionIds
+                            } else {
+                                Op.TRUE
+                            })
+                }
                 .orderBy(NotificationTable.timestamp, SortOrder.DESC)
-                .limit(limit)
                 .toList()
         }
     }

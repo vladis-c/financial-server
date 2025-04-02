@@ -26,6 +26,7 @@ enum class EditedBy { AUTO, USER }
 
 @Serializable
 data class Transaction(
+    val id: String? = null,
     val timestamp: String? = null,
     val amount: Float? = null,
     val name: String? = null,

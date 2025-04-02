@@ -7,8 +7,6 @@ import com.vladisc.financial.server.models.TransactionsTable
 import com.vladisc.financial.server.routing.transaction.TransactionRoutingUtil
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNotNull
-import org.jetbrains.exposed.sql.statements.UpdateStatement
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 
@@ -16,7 +14,7 @@ class TransactionRepository {
     fun addTransaction(t: Transaction, uid: Int): String? {
         // Generate transaction id based on date, name, amount
         val transactionId =
-            TransactionRoutingUtil.generateTransactionId(t)
+            TransactionRoutingUtil.generateTransactionId(t.timestamp)
         return transaction {
             val inserted = TransactionsTable.insertIgnore {
                 it[id] = transactionId
