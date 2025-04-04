@@ -82,6 +82,9 @@ class OllamaService {
     - **EXPENSE:** Money spent (e.g., "Card payment (Credit). You paid $35.05 to payee Starbucks")
     - **INVOICE:** Pending payment (e.g., "Unconfirmed invoice: Due date is 10.4.2025: 16,99 € to Vattenfall Oy. You can edit the payment details", "Unconfirmed invoice: Due date is today: 60.00 € to DNA OYJ. You can edit the payment details", "Confirmed invoice: Due date is today: 30 € to Rakennusliito oy. You can edit the payment details")
     
+    **Previously created JSON objects from the notifications:**
+    $mergedTransactionsAndNotificationsList
+    
     **Rules:**
     - Only return JSON, no explanation.
     - Ensure `amount` is a **float** (e.g., `12.99`).
@@ -91,7 +94,7 @@ class OllamaService {
     - Ensure `invoiceStatus` is **one of** `"CONFIRMED"`, `"UNCONFIRMED"`, `"CANCELED"`, `"PAID"`, `"UNPAID"`.
     
 """.trimIndent()
-            val requestBody = OllamaRequest(model = "llama3.2", prompt = prompt)
+            val requestBody = OllamaRequest(model = "qwen2.5-coder", prompt = prompt)
 
             val response: HttpResponse = client.post("http://localhost:11434/api/generate") {
                 setBody(json.encodeToString(OllamaRequest.serializer(), requestBody))
