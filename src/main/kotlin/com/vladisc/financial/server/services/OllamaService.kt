@@ -49,6 +49,12 @@ class OllamaService {
             }
             println(mergedTransactionsAndNotificationsList)
             val name = "$firstName $lastName".uppercase()
+            val companyNameRule = if (companyName.isNotBlank()) {
+                "- My company that pays me monthly income is ${companyName.uppercase()}. If transaction contains this name, it means that I am getting a salary income"
+            } else {
+                ""
+            }
+
             val prompt = """
     Extract structured transaction from this banking push notification: "${notification.title}. ${notification.body}".
     
@@ -62,7 +68,7 @@ class OllamaService {
     }
 
     **Some extra rules to take into consideration when identifying between INCOME, TRANSFER or DIVIDEND**
-    - My company that pays me monthly income is $companyName. If transaction contains this name, it means, that I am getting a salary income
+    $companyNameRule
     - My name is $name. If transaction contains this name, it means, I am getting dividends paid. 
     - If transaction contain other person name or other company name, it means, that's a transfer.
     
@@ -151,6 +157,7 @@ class OllamaService {
                     }
                     braceCount++
                 }
+
                 '}' -> {
                     braceCount--
                     if (braceCount == 0 && startIndex != -1) {
