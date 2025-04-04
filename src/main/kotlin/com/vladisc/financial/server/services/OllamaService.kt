@@ -44,17 +44,13 @@ class OllamaService {
             val mergedTransactionsAndNotifications =
                 mergeTransactionsAndNotifications(prevTransactions, prevNotifications)
             val mergedTransactionsAndNotificationsList = mergedTransactionsAndNotifications.joinToString(";\n") {
-                val notificationText = it.notification?.let { notif ->
-                    "From the notification: \"${notif.title ?: "Unknown Title"}. ${notif.body ?: "No Body"}\""
-                } ?: "No notification available"
-
                 val transactionJson = Json.encodeToString(it.transaction)
-
-                "$notificationText the following transaction \"$transactionJson\" has been created"
+                "From the notification: \"${it.notification?.title}. ${it.notification?.body}\" the following transaction \"$transactionJson\" has been created"
             }
+            println(mergedTransactionsAndNotificationsList)
             val name = "$firstName $lastName".uppercase()
             val prompt = """
-    Extract structured financial data from this banking notification: "${notification.title}. ${notification.body}".
+    Extract structured transaction from this banking push notification: "${notification.title}. ${notification.body}".
     
     **Output Format (JSON, no extra text):** 
     {
@@ -70,7 +66,7 @@ class OllamaService {
     - My name is $name. If transaction contains this name, it means, I am getting dividends paid. 
     - If transaction contain other person name or other company name, it means, that's a transfer.
     
-    **Extra rules for identification if the `invoice` status**
+    **Extra rules for identification if the `INVOICE` status**
     - `CONFIRMED` can be only when it is clearly seen from the notification, that it is confirmed
     - `UNCONFIRMED` can be only when it is clearly seen from the notification, that it is unconfirmed
     - If it is not clearly possible to define `CONFIRMED` or `UNCONFIRMED`, then it is `null`
@@ -82,17 +78,17 @@ class OllamaService {
     - **EXPENSE:** Money spent (e.g., "Card payment (Credit). You paid $35.05 to payee Starbucks")
     - **INVOICE:** Pending payment (e.g., "Unconfirmed invoice: Due date is 10.4.2025: 16,99 € to Vattenfall Oy. You can edit the payment details", "Unconfirmed invoice: Due date is today: 60.00 € to DNA OYJ. You can edit the payment details", "Confirmed invoice: Due date is today: 30 € to Rakennusliito oy. You can edit the payment details")
     
-    **Previously created JSON objects from the notifications:**
+    **Examples of the transactions in JSON format that were created before in my database (ignore `timestamp`):**
     $mergedTransactionsAndNotificationsList
     
     **Rules:**
-    - Only return JSON, no explanation.
+    - Only return data in JSON format, no explanation, no extra text.
     - Ensure `amount` is a **float** (e.g., `12.99`).
     - Ensure `name` is **exactly** the person/company/venue name (e.g., `"K-Market"`, `"Taiste Oy"`, `"Kir Cedar"`).
     - Ensure `type` is **one of** `"INCOME"`, `"EXPENSE"`, or `"INVOICE", or "TRANSFER", or "DIVIDEND"`.
     - Ensure `dueDate` is **stated** and not `null` only if it is an INVOICE type, and the date can be defined from the text. If text states the due date is today or tomorrow, then set the corresponding date. Today is ${LocalDate.now()} Else `null`.
     - Ensure `invoiceStatus` is **one of** `"CONFIRMED"`, `"UNCONFIRMED"`, `"CANCELED"`, `"PAID"`, `"UNPAID"`.
-    
+        
 """.trimIndent()
             val requestBody = OllamaRequest(model = "qwen2.5-coder", prompt = prompt)
 
@@ -115,8 +111,8 @@ class OllamaService {
                     }
                 }
                 .joinToString("")
-            println("Parsing Transaction: $fullResponse")
-            return extractTransactionFromResponse(fullResponse)
+            println("Parsing Transaction: ${extractJsonObject(fullResponse)}")
+            return extractTransactionFromResponse(extractJsonObject(fullResponse))
         } catch (e: Exception) {
             return null
         }
@@ -141,5 +137,29 @@ class OllamaService {
                 notification = notificationMap[transaction.id]
             )
         }
+    }
+
+    private fun extractJsonObject(text: String): String {
+        var startIndex = -1
+        var braceCount = 0
+
+        for (i in text.indices) {
+            when (text[i]) {
+                '{' -> {
+                    if (braceCount == 0) {
+                        startIndex = i
+                    }
+                    braceCount++
+                }
+                '}' -> {
+                    braceCount--
+                    if (braceCount == 0 && startIndex != -1) {
+                        return text.substring(startIndex, i + 1)
+                    }
+                }
+            }
+        }
+
+        return "" // No valid JSON object found
     }
 }
