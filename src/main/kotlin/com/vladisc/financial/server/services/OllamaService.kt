@@ -32,14 +32,14 @@ class OllamaService {
         }
     }
 
-    suspend fun extractTransaction(
-        notification: Notification,
+    suspend fun extractTransactions(
+        notifications: List<Notification>,
         firstName: String,
         lastName: String,
         companyName: String,
         prevTransactions: List<Transaction>,
         prevNotifications: List<Notification>
-    ): Transaction? {
+    ): List<Transaction>? {
         try {
             val mergedTransactionsAndNotifications =
                 mergeTransactionsAndNotifications(prevTransactions, prevNotifications)
@@ -47,7 +47,7 @@ class OllamaService {
                 val transactionJson = Json.encodeToString(it.transaction)
                 "From the notification: \"${it.notification?.title}. ${it.notification?.body}\" the following transaction \"$transactionJson\" has been created"
             }
-            println(mergedTransactionsAndNotificationsList)
+            println("mergedTransactionsAndNotificationsList $mergedTransactionsAndNotificationsList")
             val name = "$firstName $lastName".uppercase()
             val companyNameRule = if (companyName.isNotBlank()) {
                 "- My company that pays me monthly income is ${companyName.uppercase()}. If transaction contains this name, it means that I am getting a salary income"
@@ -55,8 +55,10 @@ class OllamaService {
                 ""
             }
 
+            val notificationsString = notifications.joinToString(";\n")
+            println("notificationsString $notificationsString")
             val prompt = """
-    Extract structured transaction from this banking push notification: "${notification.title}. ${notification.body}".
+    Extract structured transactions from each of these banking push notifications: "$notificationsString".
     
     **Output Format (JSON, no extra text):** 
     {
@@ -88,14 +90,16 @@ class OllamaService {
     $mergedTransactionsAndNotificationsList
     
     **Rules:**
-    - Only return data in JSON format, no explanation, no extra text.
-    - Ensure `amount` is a **float** (e.g., `12.99`).
-    - Ensure `name` is **exactly** the person/company/venue name (e.g., `"K-Market"`, `"Taiste Oy"`, `"Kir Cedar"`).
-    - Ensure `type` is **one of** `"INCOME"`, `"EXPENSE"`, or `"INVOICE", or "TRANSFER", or "DIVIDEND"`.
-    - Ensure `dueDate` is **stated** and not `null` only if it is an INVOICE type, and the date can be defined from the text. If text states the due date is today or tomorrow, then set the corresponding date. Today is ${LocalDate.now()} Else `null`.
-    - Ensure `invoiceStatus` is **one of** `"CONFIRMED"`, `"UNCONFIRMED"`, `"CANCELED"`, `"PAID"`, `"UNPAID"`.
+    - Only return data in JSON format (array of objects), no explanation, no extra text.
+    - For each object in the array:
+        - Ensure `amount` is a **float** (e.g., `12.99`).
+        - Ensure `name` is **exactly** the person/company/venue name (e.g., `"K-Market"`, `"Taiste Oy"`, `"Kir Cedar"`).
+        - Ensure `type` is **one of** `"INCOME"`, `"EXPENSE"`, or `"INVOICE", or "TRANSFER", or "DIVIDEND"`.
+        - Ensure `dueDate` is **stated** and not `null` only if it is an INVOICE type, and the date can be defined from the text. If text states the due date is today or tomorrow, then set the corresponding date. Today is ${LocalDate.now()} Else `null`.
+        - Ensure `invoiceStatus` is **one of** `"CONFIRMED"`, `"UNCONFIRMED"`, `"CANCELED"`, `"PAID"`, `"UNPAID"`.
         
 """.trimIndent()
+
             val requestBody = OllamaRequest(model = "qwen2.5-coder", prompt = prompt)
 
             val response: HttpResponse = client.post("http://localhost:11434/api/generate") {
@@ -103,7 +107,7 @@ class OllamaService {
             }
 
             val responseBody: String = response.body()
-
+            println("response body $responseBody")
             // Collect all "response" fields and merge into one string
             val fullResponse = responseBody
                 .trim()
@@ -116,20 +120,42 @@ class OllamaService {
                         null
                     }
                 }
-                .joinToString("")
-            println("Parsing Transaction: ${extractJsonObject(fullResponse)}")
-            return extractTransactionFromResponse(extractJsonObject(fullResponse))
+                .joinToString("").trimIndent()
+
+            val jsonArrayText = extractJsonArray(fullResponse)
+            val transactions = jsonArrayText?.let {
+                val json = Json { ignoreUnknownKeys = true }
+                json.decodeFromString<List<Transaction>>(it)
+            }
+            println(transactions)
+            return transactions
         } catch (e: Exception) {
             return null
         }
     }
 
-    private fun extractTransactionFromResponse(response: String): Transaction? {
-        return try {
-            json.decodeFromString(Transaction.serializer(), response)
-        } catch (e: Exception) {
-            null
+    private fun extractJsonArray(text: String): String? {
+        var startIndex = -1
+        var bracketCount = 0
+
+        for (i in text.indices) {
+            when (text[i]) {
+                '[' -> {
+                    if (bracketCount == 0) {
+                        startIndex = i
+                    }
+                    bracketCount++
+                }
+                ']' -> {
+                    bracketCount--
+                    if (bracketCount == 0 && startIndex != -1) {
+                        return text.substring(startIndex, i + 1)
+                    }
+                }
+            }
         }
+
+        return null
     }
 
     private fun mergeTransactionsAndNotifications(
@@ -145,28 +171,5 @@ class OllamaService {
         }
     }
 
-    private fun extractJsonObject(text: String): String {
-        var startIndex = -1
-        var braceCount = 0
 
-        for (i in text.indices) {
-            when (text[i]) {
-                '{' -> {
-                    if (braceCount == 0) {
-                        startIndex = i
-                    }
-                    braceCount++
-                }
-
-                '}' -> {
-                    braceCount--
-                    if (braceCount == 0 && startIndex != -1) {
-                        return text.substring(startIndex, i + 1)
-                    }
-                }
-            }
-        }
-
-        return "" // No valid JSON object found
-    }
 }

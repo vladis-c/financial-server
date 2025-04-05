@@ -37,6 +37,14 @@ class NotificationRepository {
         }
     }
 
+    fun addNotifications(notifications: List<Notification>, uid: Int, transactionIds: List<String>): List<String> {
+        return transaction {
+            notifications.mapIndexedNotNull { index, t ->
+                addNotification(t, uid, transactionIds[index])
+            }
+        }
+    }
+
     fun getNotifications(uid: Int, queryParameters: NotificationQueryParameters): List<ResultRow> {
         val (startDate, endDate) = queryParameters
         val notificationList = transaction {

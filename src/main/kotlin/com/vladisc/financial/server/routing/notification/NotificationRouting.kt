@@ -13,9 +13,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 
 fun Route.notificationRouting(
     userRepository: UserRepository,
@@ -118,7 +116,7 @@ fun Route.notificationRouting(
             }
 
             // Get notification via body
-            val body = call.receiveNullable<Map<String, JsonElement>>()
+            val body = call.receiveNullable<JsonArray>()
             if (body == null) {
                 call.respond(
                     HttpStatusCode.Conflict,
@@ -127,12 +125,15 @@ fun Route.notificationRouting(
                 return@post
             }
 
-            val notification = Notification(
-                timestamp = body["timestamp"]?.jsonPrimitive?.contentOrNull,
-                title = body["title"]?.jsonPrimitive?.contentOrNull,
-                body = body["body"]?.jsonPrimitive?.contentOrNull,
-                id = null,
-            )
+            val notifications = body.map { jsonElement ->
+                val obj = jsonElement.jsonObject
+                Notification(
+                    timestamp = obj["timestamp"]?.jsonPrimitive?.contentOrNull,
+                    title = obj["title"]?.jsonPrimitive?.contentOrNull,
+                    body = obj["body"]?.jsonPrimitive?.contentOrNull,
+                    id = null,
+                )
+            }
 
             // Get all types of latest transactions (1 each)
             val prevTransactionsRows = transactionRepository.getLatestTransactionsByType(userId)
@@ -145,8 +146,8 @@ fun Route.notificationRouting(
 
             // Get the transaction out of notification
             val ollamaService = OllamaService()
-            val transactionFromLLM = ollamaService.extractTransaction(
-                notification,
+            val transactionsFromLLM = ollamaService.extractTransactions(
+                notifications,
                 userRow[UsersTable.firstName],
                 userRow[UsersTable.lastName],
                 userRow[UsersTable.company],
@@ -154,69 +155,58 @@ fun Route.notificationRouting(
                 prevNotifications
             )
 
-            if (transactionFromLLM == null) {
-                val partialTransaction = Transaction(
-                    TransactionRoutingUtil.generateTransactionId(notification.timestamp),
-                    notification.timestamp,
-                    0.toFloat(),
-                    "undefined",
-                    null,
-                    EditedBy.AUTO,
-                    null,
-                    null
-                )
-                // partially add Transaction
-                transactionRepository.addTransaction(partialTransaction, userId)
-                call.respond(
-                    HttpStatusCode.PartialContent,
-                    partialTransaction
-                )
-            } else {
-                if (transactionFromLLM.amount != null
-                    && transactionFromLLM.name != null
-                    && transactionFromLLM.type != null
-                ) {
-                    val transaction =
-                        Transaction(
-                            null,
-                            notification.timestamp,
-                            transactionFromLLM.amount,
-                            transactionFromLLM.name,
-                            transactionFromLLM.type,
-                            EditedBy.AUTO,
-                            transactionFromLLM.dueDate,
-                            transactionFromLLM.invoiceStatus
-                        )
+            val transactionsIds: List<String>?
+            val transactions: List<Transaction>?
 
-                    val transactionId = transactionRepository.addTransaction(transaction, userId)
-                    if (transactionId == null) {
-                        call.respond(
-                            HttpStatusCode.Conflict,
-                            ErrorRouting(
-                                ErrorRoutingStatus.CONFLICT, "Adding transaction error"
-                            )
-                        )
-                        return@post
-                    }
-                    // Add notification to notifications table and get notificationId
-                    val notificationId = notificationRepository.addNotification(notification, userId, transactionId)
-
-                    if (notificationId == null) {
-                        call.respond(
-                            HttpStatusCode.Conflict,
-                            ErrorRouting(
-                                ErrorRoutingStatus.CONFLICT, "Adding notification error"
-                            )
-                        )
-                        return@post
-                    }
-                    call.respond(
-                        HttpStatusCode.OK, transaction
+            if (transactionsFromLLM == null) {
+                transactions = notifications.map { notification ->
+                    Transaction(
+                        TransactionRoutingUtil.generateTransactionId(notification.timestamp),
+                        notification.timestamp,
+                        0.toFloat(),
+                        "undefined",
+                        null,
+                        EditedBy.AUTO,
+                        null,
+                        null
                     )
-                    return@post
                 }
+                // partially add Transactions
+                transactionsIds = transactionRepository.addTransactions(transactions, userId)
+            } else {
+               transactions = transactionsFromLLM.mapIndexed { index, transaction ->
+                    Transaction(
+                        null,
+                        notifications[index].timestamp,
+                        transaction.amount,
+                        transaction.name,
+                        transaction.type,
+                        EditedBy.AUTO,
+                        transaction.dueDate,
+                        transaction.invoiceStatus
+                    )
+                }
+                // add transactions
+                transactionsIds = transactionRepository.addTransactions(transactions, userId)
+
             }
 
+            if (transactionsIds.isEmpty()) {
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorRouting(
+                        ErrorRoutingStatus.CONFLICT, "Adding transactions error"
+                    )
+                )
+                return@post
+            } else {
+                // add notifications
+                notificationRepository.addNotifications(notifications, userId, transactionsIds)
+            }
+            call.respond(
+                HttpStatusCode.OK,
+                transactions
+            )
 
         }
     }

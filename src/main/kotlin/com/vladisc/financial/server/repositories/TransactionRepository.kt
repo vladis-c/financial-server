@@ -43,6 +43,14 @@ class TransactionRepository {
         }
     }
 
+    fun addTransactions(transactions: List<Transaction>, uid: Int): List<String> {
+        return transaction {
+            transactions.mapNotNull {
+                addTransaction(it, uid)
+            }
+        }
+    }
+
     fun findTransaction(transactionId: String): ResultRow? {
         val transactionList = transaction {
             TransactionsTable.selectAll().where { TransactionsTable.id eq transactionId }.toList()
@@ -84,6 +92,7 @@ class TransactionRepository {
                 .map { it.value.first() } // Take the latest per group
         }
     }
+
     fun updateTransaction(t: Transaction, transactionId: String): Boolean {
         try {
             return transaction {
