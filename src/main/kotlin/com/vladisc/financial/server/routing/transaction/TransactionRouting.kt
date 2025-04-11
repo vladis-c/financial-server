@@ -199,6 +199,7 @@ fun Route.transactionRouting(
                 type = body["type"]?.jsonPrimitive?.contentOrNull?.let { TransactionType.valueOf(it) },
                 editedBy = body["editedBy"]?.jsonPrimitive?.contentOrNull?.let { EditedBy.valueOf(it) },
                 dueDate = body["dueDate"]?.jsonPrimitive?.contentOrNull,
+                payDate = body["payDate"]?.jsonPrimitive?.contentOrNull,
                 invoiceStatus = body["invoiceStatus"]?.jsonPrimitive?.contentOrNull?.let { InvoiceStatus.valueOf(it) }
             )
 

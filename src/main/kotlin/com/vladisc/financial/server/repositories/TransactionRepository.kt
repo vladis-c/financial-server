@@ -7,7 +7,6 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 class TransactionRepository {
@@ -21,6 +20,8 @@ class TransactionRepository {
                 it[userId] = uid
                 if (!t.timestamp.isNullOrBlank()) {
                     it[timestamp] = LocalDateTime.parse(t.timestamp)
+                } else {
+                    it[timestamp] = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
                 }
                 if (t.amount != null) {
                     it[amount] = t.amount.toBigDecimal()
@@ -141,6 +142,7 @@ class TransactionRepository {
                         it[payDate] = null
                     }
                     it[TransactionsTable.invoiceStatus] = invoiceStatus
+                    it[editedBy] = EditedBy.USER
                 }
                 return@transaction updateStatement != 0
             }
