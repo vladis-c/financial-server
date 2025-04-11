@@ -346,5 +346,82 @@ fun Route.transactionRouting(
             )
 
         }
+
+        patch("/{id}/invoice") {
+            // Check if access token is provided
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            if (accessTokenCookie.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access token provided")
+                )
+                return@patch
+            }
+
+            // Check if transaction id has been provided
+            val transactionId = call.parameters["id"]
+            if (transactionId == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "No transaction id provided")
+                )
+                return@patch
+            }
+
+            // Get user id from the token
+            val userId = AuthRoutingUtil.decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                accessTokenCookie
+            )
+
+            if (userId == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                )
+                return@patch
+            }
+
+            // Get invoice status from the body
+            val body = call.receiveNullable<Map<String, JsonElement>>()
+
+            if (body == null) {
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "Body is empty")
+                )
+                return@patch
+            }
+
+            val invoiceStatus = body["invoiceStatus"]?.jsonPrimitive?.contentOrNull?.let {
+                try {
+                    InvoiceStatus.valueOf(it)
+                } catch (e: IllegalArgumentException) {
+                    null
+                }
+            }
+
+            if (invoiceStatus == null) {
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "Body parameter invoiceStatus is missing")
+                )
+                return@patch
+            }
+
+            // change invoice status:
+            val transactionRow = transactionRepository.changeInvoiceStatus(transactionId, invoiceStatus)
+
+            if (transactionRow) {
+                call.respond(HttpStatusCode.OK)
+                return@patch
+            }
+            call.respond(
+                HttpStatusCode.Conflict,
+                ErrorRouting(ErrorRoutingStatus.CONFLICT, "Error when changing invoice status")
+            )
+        }
     }
 }

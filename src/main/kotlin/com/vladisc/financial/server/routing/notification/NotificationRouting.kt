@@ -183,6 +183,7 @@ fun Route.notificationRouting(
                         transaction.type,
                         EditedBy.AUTO,
                         transaction.dueDate,
+                        transaction.payDate,
                         transaction.invoiceStatus
                     )
                 }

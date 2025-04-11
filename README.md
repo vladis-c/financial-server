@@ -42,3 +42,10 @@ CREATE TABLE notifications (
     body TEXT NOT NULL
 );
 ```
+
+## Alter tables
+
+```
+ALTER TABLE transactions
+ADD COLUMN pay_date TIMESTAMP NULL;
+```

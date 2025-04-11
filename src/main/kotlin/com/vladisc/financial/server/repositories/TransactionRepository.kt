@@ -1,14 +1,14 @@
 package com.vladisc.financial.server.repositories
 
-import com.vladisc.financial.server.models.EditedBy
+import com.vladisc.financial.server.models.*
 import com.vladisc.financial.server.models.Transaction
-import com.vladisc.financial.server.models.TransactionQueryParameters
-import com.vladisc.financial.server.models.TransactionsTable
 import com.vladisc.financial.server.routing.transaction.TransactionRoutingUtil
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 class TransactionRepository {
     fun addTransaction(t: Transaction, uid: Int): String? {
@@ -32,6 +32,7 @@ class TransactionRepository {
                 it[type] = t.type
                 it[editedBy] = t.editedBy ?: EditedBy.USER
                 it[dueDate] = t.dueDate?.let { date -> LocalDateTime.parse(date) }
+                it[payDate] = t.payDate?.let { date -> LocalDateTime.parse(date) }
                 it[invoiceStatus] = t.invoiceStatus
             }
             if (inserted.insertedCount > 0) {
@@ -115,6 +116,9 @@ class TransactionRepository {
                     if (!t.dueDate.isNullOrBlank()) {
                         it[dueDate] = LocalDateTime.parse(t.dueDate)
                     }
+                    if (!t.payDate.isNullOrBlank()) {
+                        it[payDate] = LocalDateTime.parse(t.payDate)
+                    }
                     if (t.invoiceStatus != null) {
                         it[invoiceStatus] = t.invoiceStatus
                     }
@@ -122,6 +126,25 @@ class TransactionRepository {
                 }
                 return@transaction updateStatement != 0
             }
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    fun changeInvoiceStatus(transactionId: String, invoiceStatus: InvoiceStatus): Boolean {
+        try {
+            return transaction {
+                val updateStatement = TransactionsTable.update({ TransactionsTable.id eq transactionId }) {
+                    if (invoiceStatus == InvoiceStatus.PAID) {
+                        it[payDate] = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+                    } else {
+                        it[payDate] = null
+                    }
+                    it[TransactionsTable.invoiceStatus] = invoiceStatus
+                }
+                return@transaction updateStatement != 0
+            }
+
         } catch (e: Exception) {
             return false
         }
