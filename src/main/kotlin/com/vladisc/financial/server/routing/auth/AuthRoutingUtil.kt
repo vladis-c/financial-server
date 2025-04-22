@@ -11,6 +11,9 @@ import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.*
 
+// TODO: Add `logout` endpoint: destroy JWT token
+// TODO: Add `user/logs` endpoint: write all user actions: signup, login, added transaction and so on to a separate collection with datetime
+
 object AuthRoutingUtil {
     private const val ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000L
     private const val FOUR_WEEKS_MS = ONE_WEEK_MS * 4
