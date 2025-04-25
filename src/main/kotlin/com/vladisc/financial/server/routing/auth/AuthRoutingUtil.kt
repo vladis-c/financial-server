@@ -70,7 +70,7 @@ object AuthRoutingUtil {
         // Create cookie for accessToken
         val accessTokenExp = dateFormat.format(accessTokenExpiryDate)
         val accessTokenCookie =
-            "accessToken=${tokens.accessToken}; Expires=$accessTokenExp; HttpOnly; Max-Age=$ONE_WEEK_MS / 1000L}; Path=/; SameSite=Lax"
+            "accessToken=${tokens.accessToken}; Expires=$accessTokenExp; HttpOnly; Max-Age=${ONE_WEEK_MS / 1000L}; Path=/; SameSite=Lax"
         call.response.header(HttpHeaders.SetCookie, accessTokenCookie)
 
         // Create cookie for refreshToken
