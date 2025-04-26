@@ -49,3 +49,7 @@ CREATE TABLE notifications (
 ALTER TABLE transactions
 ADD COLUMN pay_date TIMESTAMP NULL;
 ```
+
+## Send notifications:
+
+`ExponentPushToken[CsgnZgP5MeJN5B0nxG7sZ3]`

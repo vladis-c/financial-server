@@ -61,6 +61,7 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
                 lastName = userRow[UsersTable.lastName],
                 dateOfBirth = userRow[UsersTable.dateOfBirth].toString(),
                 company = userRow[UsersTable.company],
+                uid = userRow[UsersTable.id].toString()
             )
             call.respond(HttpStatusCode.OK, user)
         }
@@ -119,6 +120,7 @@ fun Route.userRouting(userRepository: UserRepository, jwtIssuer: String, jwtAudi
                 newPassword = body["newPassword"]?.jsonPrimitive?.contentOrNull,
                 dateOfBirth = body["dateOfBirth"]?.jsonPrimitive?.contentOrNull,
                 company = body["company"]?.jsonPrimitive?.contentOrNull,
+                uid = userId.toString()
             )
 
             userRepository.updateUser(userId, user, userRow[UsersTable.password])
