@@ -55,10 +55,12 @@ class OllamaService {
                 ""
             }
 
-            val notificationsString = notifications.joinToString(";\n")
+            val notificationsString = notifications.joinToString(", ", prefix = "[", postfix = "]") {
+                "\"${it.title}. ${it.body}\""
+            }
             println("notificationsString $notificationsString")
             val prompt = """
-    Extract structured transactions from each of these banking push notifications: "$notificationsString".
+    Extract structured transactions from each of these banking push notifications: $notificationsString
     
     **Output Format (JSON, no extra text):** 
     {
@@ -86,9 +88,6 @@ class OllamaService {
     - **EXPENSE:** Money spent (e.g., "Card payment (Credit). You paid $35.05 to payee Starbucks")
     - **INVOICE:** Pending payment (e.g., "Unconfirmed invoice: Due date is 10.4.2025: 16,99 € to Vattenfall Oy. You can edit the payment details", "Unconfirmed invoice: Due date is today: 60.00 € to DNA OYJ. You can edit the payment details", "Confirmed invoice: Due date is today: 30 € to Rakennusliito oy. You can edit the payment details")
     
-    **Examples of the transactions in JSON format that were created before in my database (ignore `timestamp`):**
-    $mergedTransactionsAndNotificationsList
-    
     **Rules:**
     - Only return data in JSON format (array of objects), no explanation, no extra text.
     - For each object in the array:
@@ -99,6 +98,7 @@ class OllamaService {
         - Ensure `invoiceStatus` is **one of** `"CONFIRMED"`, `"UNCONFIRMED"`, `"CANCELED"`, `"PAID"`, `"UNPAID"`.
         
 """.trimIndent()
+            println(prompt)
 
             val requestBody = OllamaRequest(model = "qwen2.5-coder", prompt = prompt)
 
