@@ -26,6 +26,7 @@ CREATE TABLE transactions (
     type VARCHAR(10) NULL CHECK (type IN ('INCOME', 'EXPENSE', 'INVOICE', 'REFUND', 'TRANSFER', 'DIVIDEND')),
     edited_by VARCHAR(10) NOT NULL CHECK (edited_by IN ('AUTO', 'USER')),
     due_date TIMESTAMP NULL,
+    pay_date TIMESTAMP NULL,
     invoice_status VARCHAR(15) NULL CHECK (invoice_status IN ('CONFIRMED', 'UNCONFIRMED', 'CANCELED', 'PAID', 'UNPAID'))
 );
 ```
