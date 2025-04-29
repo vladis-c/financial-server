@@ -39,8 +39,8 @@ class NotificationRepository {
 
     fun addNotifications(notifications: List<Notification>, uid: Int, transactionIds: List<String>): List<String> {
         return transaction {
-            notifications.mapIndexedNotNull { index, t ->
-                addNotification(t, uid, transactionIds[index])
+            notifications.zip(transactionIds).mapNotNull { (notification, transactionId) ->
+                addNotification(notification, uid, transactionId)
             }
         }
     }

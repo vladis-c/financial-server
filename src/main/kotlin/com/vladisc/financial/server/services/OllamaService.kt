@@ -28,7 +28,14 @@ class OllamaService {
     private val json = Json { ignoreUnknownKeys = true }
     private val client = HttpClient(OkHttp) {
         install(HttpTimeout) {
-            requestTimeoutMillis = 20000
+            requestTimeoutMillis = 120_000 // how long the entire request can take
+            connectTimeoutMillis = 60_000 // how long to wait when connecting
+            socketTimeoutMillis = 120_000 // how long to wait for a read/write operation
+        }
+        engine {
+            config {
+                retryOnConnectionFailure(true)
+            }
         }
     }
 
@@ -50,7 +57,7 @@ class OllamaService {
             println("mergedTransactionsAndNotificationsList $mergedTransactionsAndNotificationsList")
             val name = "$firstName $lastName".uppercase()
             val companyNameRule = if (companyName.isNotBlank()) {
-                "- My company that pays me monthly income is ${companyName.uppercase()}. If transaction contains this name, it means that I am getting a salary income"
+                "- My company that pays me monthly income is ${companyName.uppercase()}. If transaction contains this name, it means that I am getting a salary income."
             } else {
                 ""
             }
@@ -75,15 +82,16 @@ class OllamaService {
     $companyNameRule
     - My name is $name. If transaction contains this name, it means, I am getting dividends paid. 
     - If transaction contain other person name or other company name, it means, that's a transfer.
+    - If transaction contains "Income. VIPPS MOBILEPAY AS ..." - means I am getting a transfer from some unknown person, so type transfer.
     
     **Extra rules for identification if the `INVOICE` status**
     - `CONFIRMED` can be only when it is clearly seen from the notification, that it is confirmed
     - `UNCONFIRMED` can be only when it is clearly seen from the notification, that it is unconfirmed
     - If it is not clearly possible to define `CONFIRMED` or `UNCONFIRMED`, then it is `null`
     
-    **Classification Rules with examples:**
-    - **INCOME:** Payment received (e.g., "Income. TAISTE OY paid 3232,23 €")
+    **Classification Rules with examples:**   
     - **TRANSFER:** Payment received (e.g., "Income. ALEXANDER CHER paid 300 €", "Income. VIPPS MOBILEPAY AS, paid 12,50€")
+    - **INCOME:** Payment received (e.g., "Income. TAISTE OY paid 3000 €", "Income. RB GLOBAL paid 3232,23 €")
     - **DIVIDEND:** Payment received (e.g., "Income. $name paid 18.18 €")
     - **EXPENSE:** Money spent (e.g., "Card payment (Credit). You paid $35.05 to payee Starbucks")
     - **INVOICE:** Pending payment (e.g., "Unconfirmed invoice: Due date is 10.4.2025: 16,99 € to Vattenfall Oy. You can edit the payment details", "Unconfirmed invoice: Due date is today: 60.00 € to DNA OYJ. You can edit the payment details", "Confirmed invoice: Due date is today: 30 € to Rakennusliito oy. You can edit the payment details")
@@ -107,7 +115,7 @@ class OllamaService {
             }
 
             val responseBody: String = response.body()
-            println("response body $responseBody")
+//            println("response body $responseBody")
             // Collect all "response" fields and merge into one string
             val fullResponse = responseBody
                 .trim()
@@ -121,7 +129,7 @@ class OllamaService {
                     }
                 }
                 .joinToString("").trimIndent()
-
+            println("full response $fullResponse")
             val jsonArrayText = extractJsonArray(fullResponse)
             val transactions = jsonArrayText?.let {
                 val json = Json { ignoreUnknownKeys = true }

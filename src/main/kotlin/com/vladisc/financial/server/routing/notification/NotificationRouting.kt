@@ -189,7 +189,6 @@ fun Route.notificationRouting(
                 }
                 // add transactions
                 transactionsIds = transactionRepository.addTransactions(transactions, userId)
-
             }
 
             if (transactionsIds.isEmpty()) {
