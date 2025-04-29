@@ -16,7 +16,7 @@ object NotificationRoutingUtil {
         return bytes.joinToString("") { "%02x".format(it) }.take(20) // First 20 chars
     }
 
-    private fun parseNotification(notificationRow: ResultRow): Notification {
+    fun parseNotification(notificationRow: ResultRow): Notification {
         return Notification(
             notificationRow[NotificationTable.id],
             notificationRow[NotificationTable.timestamp].toString(),

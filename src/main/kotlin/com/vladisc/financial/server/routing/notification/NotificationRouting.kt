@@ -76,6 +76,64 @@ fun Route.notificationRouting(
 
             val notifications = NotificationRoutingUtil.parseNotifications(notificationRows)
             call.respond(HttpStatusCode.OK, notifications)
+        }
+        get("/{transactionId}") {
+            // Check if access token is provided
+            val accessTokenCookie = call.request.cookies["accessToken"]
+            if (accessTokenCookie.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "No access token provided")
+                )
+                return@get
+            }
+
+            // Get user id from the token
+            val userId = AuthRoutingUtil.decodeTokenToUid(
+                jwtIssuer,
+                jwtAudience,
+                jwtSecret,
+                accessTokenCookie
+            )
+
+            if (userId == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorRouting(ErrorRoutingStatus.UNAUTHORIZED, "Token expired")
+                )
+                return@get
+            }
+
+            // Check if user exists in DB
+            val userRow = userRepository.findUserById(userId)
+            if (userRow == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "User not found")
+                )
+                return@get
+            }
+
+            val transactionId = call.parameters["transactionId"]
+            if (transactionId == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.PARAMETER_MISSING, "No transaction id provided")
+                )
+                return@get
+            }
+            // Check for all notifications for this user + query
+            val notificationRow = notificationRepository.getNotificationByTransactionId(transactionId)
+            if (notificationRow == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorRouting(ErrorRoutingStatus.NOT_FOUND, "No notification found")
+                )
+                return@get
+            }
+
+            val notification = NotificationRoutingUtil.parseNotification(notificationRow)
+            call.respond(HttpStatusCode.OK, notification)
 
         }
         post("/") {
@@ -174,7 +232,7 @@ fun Route.notificationRouting(
                 // partially add Transactions
                 transactionsIds = transactionRepository.addTransactions(transactions, userId)
             } else {
-               transactions = transactionsFromLLM.mapIndexed { index, transaction ->
+                transactions = transactionsFromLLM.mapIndexed { index, transaction ->
                     Transaction(
                         null,
                         notifications[index].timestamp,
