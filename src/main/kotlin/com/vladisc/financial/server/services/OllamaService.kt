@@ -75,34 +75,34 @@ class OllamaService {
       "name": "<exact legal entity name of company or venue or person name>",
       "type": "<INCOME | EXPENSE | INVOICE | TRANSFER | DIVIDEND>"
       "dueDate": <date time in YYYY-MM-DDTHH:mm:SS format, where time is 23:59:59 if not stated otherwise | null if date is not stated at all>
-      "invoiceStatus": <CONFIRMED | UNCONFIRMED | CANCELED | PAID | UNPAID>
+      "invoiceStatus": <UNCONFIRMED | PAID>
     }
 
-    **Some extra rules to take into consideration when identifying between INCOME, TRANSFER or DIVIDEND**
+    **Some extra rules to take into consideration when identifying between TRANSFER or DIVIDEND**
     $companyNameRule
     - My name is $name. If transaction contains this name, it means, I am getting dividends paid. 
     - If transaction contain other person name or other company name, it means, that's a transfer.
-    - If transaction contains "Income. VIPPS MOBILEPAY AS ..." - means I am getting a transfer from some unknown person, so type transfer.
+    - If transaction contains "Income. VIPPS MOBILEPAY AS ..." - means I am getting a transfer from some unknown person, so type `TRANSFER`.
+    
+    **Classification Rules with examples:** 
+    - **INVOICE:** (examples:, "Unconfirmed invoice. Due date is 10.4.2025: 16,99 € to Vattenfall Oy. You can edit the payment details", "Unconfirmed invoice. Due date is today: 60.00 € to DNA OYJ. You can edit the payment details", "E-invoice. 25 € paid to payee Rakennusliito ry.", "Payment. Paid 750 € to payee KeskinäinenTyöeläkevakuutus.")
+    - **TRANSFER:** (examples: "Income. ALEXANDER CHER paid 300 €", "Income. VIPPS MOBILEPAY AS, paid 12,50€")
+    - **INCOME:** (examples:, "Income. RB GLOBAL paid 3232,23 €")
+    - **DIVIDEND:** (examples:, "Income. $name paid 18.18 €")
+    - **EXPENSE:** (examples:, "Card payment (Credit). You paid 35.05 € to payee Starbucks")
     
     **Extra rules for identification if the `INVOICE` status**
-    - `CONFIRMED` can be only when it is clearly seen from the notification, that it is confirmed
-    - `UNCONFIRMED` can be only when it is clearly seen from the notification, that it is unconfirmed
+    - `UNCONFIRMED` can be only when it is clearly seen from the notification, that it is unconfirmed. (examples: "Unconfirmed invoice. Due date is 10.4.2025: 16,99 € to Vattenfall Oy. You can edit the payment details")
+    - `PAID` can be only when it is E-invoice or Payment, which is paid and seen in the notification text. (examples: "E-invoice. 25 € paid to payee Rakennusliito ry.", "Payment. Paid 750 € to payee KeskinäinenTyöeläkevakuutus.")
     - If it is not clearly possible to define `CONFIRMED` or `UNCONFIRMED`, then it is `null`
-    
-    **Classification Rules with examples:**   
-    - **TRANSFER:** Payment received (e.g., "Income. ALEXANDER CHER paid 300 €", "Income. VIPPS MOBILEPAY AS, paid 12,50€")
-    - **INCOME:** Payment received (e.g., "Income. TAISTE OY paid 3000 €", "Income. RB GLOBAL paid 3232,23 €")
-    - **DIVIDEND:** Payment received (e.g., "Income. $name paid 18.18 €")
-    - **EXPENSE:** Money spent (e.g., "Card payment (Credit). You paid $35.05 to payee Starbucks")
-    - **INVOICE:** Pending payment (e.g., "Unconfirmed invoice: Due date is 10.4.2025: 16,99 € to Vattenfall Oy. You can edit the payment details", "Unconfirmed invoice: Due date is today: 60.00 € to DNA OYJ. You can edit the payment details", "Confirmed invoice: Due date is today: 30 € to Rakennusliito oy. You can edit the payment details")
-    
+     
     **Rules:**
     - Only return data in JSON format (array of objects), no explanation, no extra text.
     - For each object in the array:
-        - Ensure `amount` is a **float** (e.g., `12.99`).
-        - Ensure `name` is **exactly** the person/company/venue name (e.g., `"K-Market"`, `"Taiste Oy"`, `"Kir Cedar"`).
+        - Ensure `amount` is a **float** (examples:, `12.99`).
+        - Ensure `name` is **exactly** the person/company/venue name (examples:, `"K-Market"`, `"Neste Oy"`, `"Kir Cedar"`).
         - Ensure `type` is **one of** `"INCOME"`, `"EXPENSE"`, or `"INVOICE", or "TRANSFER", or "DIVIDEND"`.
-        - Ensure `dueDate` is **stated** and not `null` only if it is an INVOICE type, and the date can be defined from the text. If text states the due date is today or tomorrow, then set the corresponding date. Today is ${LocalDate.now()} Else `null`.
+        - Ensure `dueDate` is **stated** and not `null` only if it is an INVOICE type, and the date can be defined from the text. If text states the due date is today or tomorrow, then set the corresponding date. Today is ${LocalDate.now()} Else `null`. Date should be in format "YYYY-MM-DD'T'HH:mm:ss".
         - Ensure `invoiceStatus` is **one of** `"CONFIRMED"`, `"UNCONFIRMED"`, `"CANCELED"`, `"PAID"`, `"UNPAID"`.
         
 """.trimIndent()
