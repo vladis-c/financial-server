@@ -7,7 +7,7 @@ import org.jetbrains.exposed.sql.javatime.datetime
 import java.time.LocalDateTime
 
 object TransactionsTable : Table("transactions") {
-    val id = varchar("id", 100)
+    val id = integer("id").autoIncrement()
     val userId = integer("user_id").references(UsersTable.id, onDelete = ReferenceOption.CASCADE)
     val timestamp = datetime("date_time")
     val amount = decimal("amount", 10, 2)

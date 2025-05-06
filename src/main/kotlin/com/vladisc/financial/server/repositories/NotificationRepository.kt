@@ -3,23 +3,18 @@ package com.vladisc.financial.server.repositories
 import com.vladisc.financial.server.models.Notification
 import com.vladisc.financial.server.models.NotificationQueryParameters
 import com.vladisc.financial.server.models.NotificationTable
-import com.vladisc.financial.server.models.Transaction
-import com.vladisc.financial.server.models.TransactionsTable
-import com.vladisc.financial.server.routing.notification.NotificationRoutingUtil
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 
 class NotificationRepository {
-    fun addNotification(n: Notification, uid: Int, transactionId: String?): String? {
-        val notificationId = NotificationRoutingUtil.generateNotificationId(n)
-
+    fun addNotification(n: Notification, uid: Int, transactionId: Int?): Int? {
         return transaction {
             val inserted = NotificationTable.insertIgnore {
-                it[id] = notificationId
                 it[userId] = uid
-                it[NotificationTable.transactionId] = transactionId ?: notificationId
+                if (transactionId != null) {
+                    it[NotificationTable.transactionId] = transactionId
+                }
                 if (!n.timestamp.isNullOrBlank()) {
                     it[timestamp] = LocalDateTime.parse(n.timestamp)
                 }
@@ -30,15 +25,18 @@ class NotificationRepository {
                     it[body] = n.body
                 }
             }
-            if (inserted.insertedCount > 0) {
-                notificationId
-            } else {
-                null
+            val insertedRows = inserted.resultedValues
+            insertedRows?.size?.let {
+                if (it > 0) {
+                    insertedRows[0][NotificationTable.id]
+                } else {
+                    null
+                }
             }
         }
     }
 
-    fun addNotifications(notifications: List<Notification>, uid: Int, transactionIds: List<String>): List<String> {
+    fun addNotifications(notifications: List<Notification>, uid: Int, transactionIds: List<Int>): List<Int> {
         return transaction {
             notifications.zip(transactionIds).mapNotNull { (notification, transactionId) ->
                 addNotification(notification, uid, transactionId)
@@ -66,7 +64,7 @@ class NotificationRepository {
         return notificationList
     }
 
-    fun getLastNotifications(uid: Int, transactionIds: List<String>?): List<ResultRow> {
+    fun getLastNotifications(uid: Int, transactionIds: List<Int>?): List<ResultRow> {
         return transaction {
             NotificationTable
                 .selectAll().where {
@@ -82,7 +80,7 @@ class NotificationRepository {
         }
     }
 
-    fun getNotificationByTransactionId(transactionId: String): ResultRow? {
+    fun getNotificationByTransactionId(transactionId: Int): ResultRow? {
         val notificationsList = transaction {
             NotificationTable.selectAll().where {
                 NotificationTable.transactionId eq transactionId

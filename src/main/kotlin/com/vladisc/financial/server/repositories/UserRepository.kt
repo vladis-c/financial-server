@@ -30,7 +30,8 @@ class UserRepository {
                 }
 
             }
-            inserted.insertedCount > 0
+            val insertedRows = inserted.resultedValues
+            insertedRows?.isNotEmpty() ?: false
         }
     }
 
@@ -80,7 +81,7 @@ class UserRepository {
                 }
                 return@transaction updateStatement != 0 // No fields were modified, return false
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return false
         }
     }
@@ -91,7 +92,7 @@ class UserRepository {
                 val deletedRows = UsersTable.deleteWhere { id eq userId }
                 deletedRows > 0
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }

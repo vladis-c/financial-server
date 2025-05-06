@@ -35,7 +35,7 @@ fun Route.transactionRouting(
             }
 
             // Check if transaction id has been provided
-            val transactionId = call.parameters["id"]
+            val transactionId = call.parameters["id"]?.toInt()
             if (transactionId == null) {
                 call.respond(
                     HttpStatusCode.NotFound,
@@ -234,7 +234,7 @@ fun Route.transactionRouting(
             }
 
             // Check if transaction id has been provided
-            val transactionId = call.parameters["id"]
+            val transactionId = call.parameters["id"]?.toInt()
             if (transactionId == null) {
                 call.respond(
                     HttpStatusCode.NotFound,
@@ -309,7 +309,7 @@ fun Route.transactionRouting(
             }
 
             // Check if transaction id has been provided
-            val transactionId = call.parameters["id"]
+            val transactionId = call.parameters["id"]?.toInt()
             if (transactionId == null) {
                 call.respond(
                     HttpStatusCode.NotFound,
@@ -360,7 +360,7 @@ fun Route.transactionRouting(
             }
 
             // Check if transaction id has been provided
-            val transactionId = call.parameters["id"]
+            val transactionId = call.parameters["id"]?.toInt()
             if (transactionId == null) {
                 call.respond(
                     HttpStatusCode.NotFound,
@@ -399,7 +399,7 @@ fun Route.transactionRouting(
             val invoiceStatus = body["invoiceStatus"]?.jsonPrimitive?.contentOrNull?.let {
                 try {
                     InvoiceStatus.valueOf(it)
-                } catch (e: IllegalArgumentException) {
+                } catch (_: IllegalArgumentException) {
                     null
                 }
             }

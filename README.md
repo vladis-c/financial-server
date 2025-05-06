@@ -18,7 +18,7 @@ CREATE TABLE users (
 
 ```
 CREATE TABLE transactions (
-    id VARCHAR(100) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     date_time TIMESTAMP NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
@@ -35,20 +35,13 @@ CREATE TABLE transactions (
 
 ```
 CREATE TABLE notifications (
-    id VARCHAR(100) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    transaction_id VARCHAR(100) UNIQUE NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    transaction_id INT UNIQUE REFERENCES transactions(id) ON DELETE CASCADE,
     date_time TIMESTAMP NOT NULL,
     title VARCHAR(255) NOT NULL,
     body TEXT NOT NULL
 );
-```
-
-## Alter tables
-
-```
-ALTER TABLE transactions
-ADD COLUMN pay_date TIMESTAMP NULL;
 ```
 
 ## Send notifications:

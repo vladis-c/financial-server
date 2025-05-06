@@ -114,7 +114,7 @@ fun Route.notificationRouting(
                 return@get
             }
 
-            val transactionId = call.parameters["transactionId"]
+            val transactionId = call.parameters["transactionId"]?.toInt()
             if (transactionId == null) {
                 call.respond(
                     HttpStatusCode.NotFound,
@@ -213,20 +213,19 @@ fun Route.notificationRouting(
                 prevNotifications
             )
 
-            val transactionsIds: List<String>?
+            val transactionsIds: List<Int>?
             val transactions: List<Transaction>?
 
             if (transactionsFromLLM == null) {
                 transactions = notifications.map { notification ->
                     Transaction(
-                        TransactionRoutingUtil.generateTransactionId(notification.timestamp),
-                        notification.timestamp,
-                        0.toFloat(),
-                        "undefined",
-                        null,
-                        EditedBy.AUTO,
-                        null,
-                        null
+                        timestamp = notification.timestamp,
+                        amount = 0.toFloat(),
+                        name = "undefined",
+                        type = null,
+                        editedBy = EditedBy.AUTO,
+                        dueDate = null,
+                        payDate = null
                     )
                 }
                 // partially add Transactions
@@ -234,15 +233,14 @@ fun Route.notificationRouting(
             } else {
                 transactions = transactionsFromLLM.mapIndexed { index, transaction ->
                     Transaction(
-                        null,
-                        notifications[index].timestamp,
-                        transaction.amount,
-                        transaction.name,
-                        transaction.type,
-                        EditedBy.AUTO,
-                        transaction.dueDate,
-                        transaction.payDate,
-                        transaction.invoiceStatus
+                        timestamp = notifications[index].timestamp,
+                        amount = transaction.amount,
+                        name = transaction.name,
+                        type = transaction.type,
+                        editedBy = EditedBy.AUTO,
+                        dueDate = transaction.dueDate,
+                        payDate = transaction.payDate,
+                        invoiceStatus = transaction.invoiceStatus
                     )
                 }
                 // add transactions

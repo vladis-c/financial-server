@@ -3,28 +3,20 @@ package com.vladisc.financial.server.routing.transaction
 import com.vladisc.financial.server.models.*
 import io.ktor.http.*
 import org.jetbrains.exposed.sql.ResultRow
-import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 object TransactionRoutingUtil {
-    fun generateTransactionId(timestamp: String?): String {
-        val input = "${timestamp}"
-        val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
-        return bytes.joinToString("") { "%02x".format(it) }.take(20) // First 20 chars
-    }
-
-    fun parseTransaction(transactionRow: ResultRow): Transaction {
+        fun parseTransaction(transactionRow: ResultRow): Transaction {
         return Transaction(
-            transactionRow[TransactionsTable.id],
-            transactionRow[TransactionsTable.timestamp].toString(),
-            transactionRow[TransactionsTable.amount].toFloat(),
-            transactionRow[TransactionsTable.name],
-            transactionRow[TransactionsTable.type],
-            transactionRow[TransactionsTable.editedBy],
-            transactionRow[TransactionsTable.dueDate].toString(),
-            transactionRow[TransactionsTable.payDate].toString(),
-            transactionRow[TransactionsTable.invoiceStatus]
+            timestamp = transactionRow[TransactionsTable.timestamp].toString(),
+            amount = transactionRow[TransactionsTable.amount].toFloat(),
+            name = transactionRow[TransactionsTable.name],
+            type = transactionRow[TransactionsTable.type],
+            editedBy = transactionRow[TransactionsTable.editedBy],
+            dueDate = transactionRow[TransactionsTable.dueDate].toString(),
+            payDate = transactionRow[TransactionsTable.payDate].toString(),
+            invoiceStatus = transactionRow[TransactionsTable.invoiceStatus]
         )
     }
 

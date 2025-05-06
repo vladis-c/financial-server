@@ -7,9 +7,9 @@ import org.jetbrains.exposed.sql.javatime.datetime
 import java.time.LocalDateTime
 
 object NotificationTable : Table("notifications") {
-    val id = varchar("id", 100)
+    val id = integer("id").autoIncrement()
     val userId = integer("user_id").references(UsersTable.id, onDelete = ReferenceOption.CASCADE)
-    val transactionId = varchar("transaction_id", 100).uniqueIndex().references(TransactionsTable.id,
+    val transactionId = integer("transaction_id").uniqueIndex().references(TransactionsTable.id,
         onDelete = ReferenceOption.CASCADE)
     val timestamp = datetime("date_time")
     val title = varchar("title", 255)
